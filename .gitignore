@@ -31,6 +31,7 @@ target/
 *.jar
 *.war
 *.ear
+static/
 
 # Maven wrapper files
 .mvn/
