@@ -1,0 +1,88 @@
+# -------------------------------------
+#  OS-Specific and Editor/IDE Files
+# -------------------------------------
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+desktop.ini
+
+# Linux
+*~
+
+# IntelliJ / IDEA
+.idea/
+*.iws
+*.iml
+*.ipr
+
+# VSCode
+.vscode/
+
+# -------------------------------------
+#  Java / Maven (Backend) 
+# -------------------------------------
+target/
+*.class
+*.log
+*.jar
+*.war
+*.ear
+
+# Maven wrapper files
+.mvn/
+!**/.mvn/wrapper/maven-wrapper.jar  # keep wrapper jar in VCS if you want consistent builds
+
+# Eclipse / NetBeans / Other IDE
+.project
+.classpath
+.settings/
+.nbproject/
+
+# Lombok-generated files (if using Lombok)
+lombok.config
+
+# -------------------------------------
+#  Node.js / React (Frontend) 
+# -------------------------------------
+node_modules/
+build/
+npm-debug.log
+yarn-error.log
+pnpm-lock.yaml
+package-lock.json  # optional to ignore, some prefer committing lockfiles
+.yarn-integrity
+.yarnrc
+.env
+
+# -------------------------------------
+#  Logs and Temporary Files
+# -------------------------------------
+*.log
+*.cache
+*.tmp
+
+# -------------------------------------
+#  Dist / Packaged Files
+# -------------------------------------
+dist/
+out/
+coverage/
+
+# -------------------------------------
+#  Additional Files/Folders
+# -------------------------------------
+/bin/
+.der/
+.pem/
+.key/
+
+# -------------------------------------
+#  General Backup or Temp Files
+# -------------------------------------
+*.swp
+*.swo
+*~
