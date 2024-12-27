@@ -9,6 +9,15 @@ function App() {
       .then((res) => res.text())
       .then((text) => setMessage(text))
       .catch((err) => console.error(err));
+
+    fetch(`${baseUrl}/api/tasks/today`)
+      .then(response => response.json())
+      .then(data => {
+        console.log('Today’s tasks:', data);
+      })
+      .catch(error => {
+        console.error('Error fetching tasks:', error);
+      });
   }, []);
 
   return (
