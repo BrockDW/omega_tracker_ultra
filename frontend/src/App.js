@@ -5,7 +5,7 @@ function App() {
 
   useEffect(() => {
     const baseUrl = process.env.REACT_APP_API_URL;
-    fetch(`${baseUrl}/api/hello`)    // We'll rely on the same domain & port
+    fetch(`${baseUrl}/api/hello`)
       .then((res) => res.text())
       .then((text) => setMessage(text))
       .catch((err) => console.error(err));

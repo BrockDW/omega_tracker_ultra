@@ -57,7 +57,7 @@ pnpm-lock.yaml
 package-lock.json  # optional to ignore, some prefer committing lockfiles
 .yarn-integrity
 .yarnrc
-.env
+# .env
 
 # -------------------------------------
 #  Logs and Temporary Files
