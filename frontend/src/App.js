@@ -4,7 +4,7 @@ function App() {
   const [message, setMessage] = useState('');
 
   useEffect(() => {
-    fetch('/api/hello')    // We'll rely on the same domain & port
+    fetch('http://localhost:8080/api/hello')    // We'll rely on the same domain & port
       .then((res) => res.text())
       .then((text) => setMessage(text))
       .catch((err) => console.error(err));
