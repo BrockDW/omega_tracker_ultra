@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import TaskChartPage from './TaskChartPage';
 
 function App() {
   const [message, setMessage] = useState('');
@@ -23,8 +24,7 @@ function App() {
 
   return (
     <div style={{ padding: '2rem', fontFamily: 'Arial, sans-serif' }}>
-      <h1>Hello from React!</h1>
-      <p>Backend says: {message}</p>
+      <TaskChartPage />
     </div>
   );
 }

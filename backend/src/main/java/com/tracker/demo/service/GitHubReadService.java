@@ -9,6 +9,8 @@ import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.WeekFields;
+import java.util.HashMap;
+import java.util.Map;
 
 @Service
 public class GitHubReadService {
@@ -26,23 +28,43 @@ public class GitHubReadService {
     @Value("${github.token}")
     private String githubToken;
 
-    public String fetchTodayMarkdown() {
-        LocalDate today = LocalDate.now();
-
+    public String fetchMarkdownForLocalDate(LocalDate localDate) {
         // e.g. "2024-12"
-        String yearMonthFolder = today.format(DateTimeFormatter.ofPattern("yyyy-MM"));
+        String yearMonthFolder = localDate.format(DateTimeFormatter.ofPattern("yyyy-MM"));
         WeekFields customWeekFields = WeekFields.of(DayOfWeek.SUNDAY, 1);
 
         // e.g. 52 for the 52nd ISO week of the year
-        int isoWeekNumber = today.get(customWeekFields.weekOfWeekBasedYear());
+        int isoWeekNumber = localDate.get(customWeekFields.weekOfWeekBasedYear());
         String weekFolder = String.format("W%02d", isoWeekNumber);;  // e.g. "W52"
 
         // e.g. "2024-12-26.md"
-        String dailyFileName = today.toString() + ".md";
+        String dailyFileName = localDate.toString() + ".md";
 
-        // Fetch the file for today's path
+        // Fetch the file for localDate's path
         return fetchMarkdownFile(yearMonthFolder, weekFolder, dailyFileName);
     }
+
+    public Map<LocalDate, String> fetchNotesInRange(LocalDate startDate, LocalDate endDate) {
+        // We will store day -> noteContent
+        Map<LocalDate, String> notesMap = new HashMap<>();
+
+        // Loop from startDate to endDate (inclusive)
+        LocalDate current = startDate;
+        while (!current.isAfter(endDate)) {
+            // fetch the file for this day's path
+            String noteContent = fetchMarkdownForLocalDate(current);
+
+            // store result in the map (could be null/empty if file not found)
+            notesMap.put(current, noteContent);
+
+            // move to the next day
+            current = current.plusDays(1);
+        }
+
+        // Return the map of date -> note content
+        return notesMap;
+    }
+
 
     public String fetchMarkdownFile(String yearMonthFolder, String weekFolder, String dailyFileName) {
         // Construct the sub-path, e.g. "2024-12/W52/2024-12-26.md"

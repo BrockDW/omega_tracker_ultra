@@ -3,6 +3,7 @@ package com.tracker.demo.service;
 import com.tracker.demo.obj.Task;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -20,7 +21,7 @@ public class DailyTaskService {
     }
 
     public List<Task> getTodayTasks() {
-        String mdContent = gitHubReadService.fetchTodayMarkdown();
+        String mdContent = gitHubReadService.fetchMarkdownForLocalDate(LocalDate.now());
         if (mdContent == null || mdContent.isEmpty()) {
             return Collections.emptyList();
         }
