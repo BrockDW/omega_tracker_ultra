@@ -5,6 +5,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.web.client.RestTemplate;
 
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.WeekFields;
@@ -30,10 +31,11 @@ public class GitHubReadService {
 
         // e.g. "2024-12"
         String yearMonthFolder = today.format(DateTimeFormatter.ofPattern("yyyy-MM"));
+        WeekFields customWeekFields = WeekFields.of(DayOfWeek.SUNDAY, 1);
 
         // e.g. 52 for the 52nd ISO week of the year
-        int isoWeekNumber = today.get(WeekFields.ISO.weekOfWeekBasedYear());
-        String weekFolder = "W" + isoWeekNumber;  // e.g. "W52"
+        int isoWeekNumber = today.get(customWeekFields.weekOfWeekBasedYear());
+        String weekFolder = String.format("W%02d", isoWeekNumber);;  // e.g. "W52"
 
         // e.g. "2024-12-26.md"
         String dailyFileName = today.toString() + ".md";

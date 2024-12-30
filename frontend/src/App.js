@@ -13,6 +13,7 @@ function App() {
     fetch(`${baseUrl}/api/tasks/today`)
       .then(response => response.json())
       .then(data => {
+        console.log("triggered");
         console.log('Today’s tasks:', data);
       })
       .catch(error => {
