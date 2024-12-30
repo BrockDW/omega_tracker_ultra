@@ -2,12 +2,12 @@ package com.tracker.demo.service;
 
 import com.tracker.demo.constants.Constants;
 import com.tracker.demo.obj.Task;
-import org.apache.tomcat.util.bcel.Const;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @Service
@@ -28,7 +28,7 @@ public class DailyEmailReminderService {
 
     @Scheduled(cron = "0 0 8 * * ?")
     public void morningReminder() {
-        List<Task> tasks = dailyTaskService.getTodayTasks();
+        List<Task> tasks = dailyTaskService.fetchMarkdownLocalDate(LocalDate.now());
         if (!CollectionUtils.isEmpty(tasks)) {
             // fetch tasks, highlight incomplete, etc.
             String body = buildTaskEmailBody(tasks);

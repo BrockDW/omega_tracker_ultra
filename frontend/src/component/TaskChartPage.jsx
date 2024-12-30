@@ -3,6 +3,7 @@ import {
     BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
     ResponsiveContainer, ComposedChart
 } from "recharts";
+import { apiGet } from "../util/apiClient";
 
 // This page shows a combined bar + line chart using Recharts' "ComposedChart"
 
@@ -18,28 +19,74 @@ function TaskChartPage() {
     const [selectedDayTasks, setSelectedDayTasks] = useState([]);
     const [selectedDate, setSelectedDate] = useState(null);
 
+    // 2) On initial load, compute "today" and "today minus 7" 
+    //    and set them as the date range
+    useEffect(() => {
+        const today = new Date();
+        const todayStr = today.toISOString().split("T")[0];
+
+        const minus7 = new Date();
+        minus7.setDate(minus7.getDate() - 7);
+        const minus7Str = minus7.toISOString().split("T")[0];
+
+        // set them once on mount
+        setEndDate(todayStr);
+        setStartDate(minus7Str);
+    }, []);
+
     // Fake data generator (in a real app, you'd fetch from your backend)
     // We'll return an array of objects, each with:
     //   date, completed, notCompleted, percentCompleted
     // for example: { date: '2024-01-01', completed: 5, notCompleted: 2, percent: 71.4 }
     useEffect(() => {
+        async function fetchRange() {
+            const dayMap = await apiGet(`/api/tasks/range?start=${startDate}&end=${endDate}`);
+            const transformed = transformDayMapToChartData(dayMap);
+            setChartData(transformed);
+
+            setSelectedDate(null);
+            setSelectedDayTasks([]);
+
+            console.log(dayMap);
+        }
         // In real usage, you'd fetch from your server using startDate/endDate
-        const dummyData = generateDummyData(startDate, endDate);
-        setChartData(dummyData);
+        fetchRange();
+        // const dummyData = generateDummyData(startDate, endDate);
+        // setChartData(dummyData);
     }, [startDate, endDate]);
 
     // Handler for bar/line click
     // The Recharts "payload" typically includes the data object
-    const handleChartClick = (data, index) => {
+    const handleChartClick = async (data, index) => {
         if (data && data.activePayload && data.activePayload.length > 0) {
             const { date } = data.activePayload[0].payload;
+            console.log(date);
             // In real usage, you'd fetch tasks from the server for that date
             // For now, we’ll just generate some fake tasks
-            const tasks = generateFakeTasksForDate(date);
+            const tasks = await apiGet(`/api/tasks/day/${date}`);
+            console.log(tasks);
             setSelectedDate(date);
             setSelectedDayTasks(tasks);
         }
     };
+
+
+    // 5) "Reset" button logic: set startDate and endDate 
+    //    again to "today" and "today minus 7"
+    const handleReset = () => {
+        const today = new Date();
+        const todayStr = today.toISOString().split("T")[0];
+
+        const minus7 = new Date();
+        minus7.setDate(minus7.getDate() - 7);
+        const minus7Str = minus7.toISOString().split("T")[0];
+
+        setEndDate(todayStr);
+        setStartDate(minus7Str);
+        setSelectedDate(null);
+        setSelectedDayTasks([]);
+    };
+
 
     return (
         <div style={{ padding: "1rem" }}>
@@ -64,6 +111,8 @@ function TaskChartPage() {
                         onChange={(e) => setEndDate(e.target.value)}
                     />
                 </label>
+                {" "}
+                <button onClick={handleReset}>Reset Range</button>
             </div>
 
             {/* Combined Bar + Line Chart */}
@@ -177,19 +226,32 @@ function generateDummyData(startDateStr, endDateStr) {
     return results;
 }
 
-function generateFakeTasksForDate(dateStr) {
-    // Just produce some random tasks 
-    // (In reality, you'd fetch from backend)
-    const tasksCount = Math.floor(Math.random() * 5) + 1;
-    const tasks = [];
-    for (let i = 0; i < tasksCount; i++) {
-        const isDone = Math.random() < 0.5;
-        tasks.push({
-            description: `Task #${i + 1} for ${dateStr}`,
-            completed: isDone,
-        });
-    }
-    return tasks;
+function transformDayMapToChartData(dayMap) {
+    // dayMap example:
+    // {
+    //   "2024-01-01": [ {description, completed}, {description, completed}, ... ],
+    //   "2024-01-02": [],
+    //   ...
+    // }
+
+    // We'll do Object.entries to get the [date, tasks] pairs
+    // Then for each date, count how many completed vs not
+    const results = Object.entries(dayMap).map(([date, tasks]) => {
+        const completedCount = tasks.filter(t => t.completed).length;
+        const notCompletedCount = tasks.length - completedCount;
+        const total = tasks.length;
+        const percent = total > 0 ? Math.round((completedCount / total) * 100) : 0;
+        return {
+            date,
+            completed: completedCount,
+            notCompleted: notCompletedCount,
+            percent
+        };
+    });
+
+    // optionally sort results by date
+    results.sort((a, b) => (a.date > b.date ? 1 : -1));
+    return results;
 }
 
 export default TaskChartPage;

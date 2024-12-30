@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import TaskChartPage from './TaskChartPage';
+import TaskChartPage from './component/TaskChartPage';
 
 function App() {
   const [message, setMessage] = useState('');
