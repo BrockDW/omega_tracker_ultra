@@ -6,12 +6,12 @@ function App() {
 
   useEffect(() => {
     const baseUrl = process.env.REACT_APP_API_URL;
-    fetch(`${baseUrl}/api/hello`)
+    fetch(`${baseUrl}/hello`)
       .then((res) => res.text())
       .then((text) => setMessage(text))
       .catch((err) => console.error(err));
 
-    fetch(`${baseUrl}/api/tasks/today`)
+    fetch(`${baseUrl}/tasks/today`)
       .then(response => response.json())
       .then(data => {
         console.log("triggered");

@@ -9,8 +9,8 @@ import { apiGet } from "../util/apiClient";
 
 function TaskChartPage() {
     // 1) State for date range
-    const [startDate, setStartDate] = useState("2024-01-01");
-    const [endDate, setEndDate] = useState("2024-01-07");
+    const [startDate, setStartDate] = useState("");
+    const [endDate, setEndDate] = useState("");    
 
     // 2) State for chart data
     const [chartData, setChartData] = useState([]);
@@ -39,8 +39,10 @@ function TaskChartPage() {
     //   date, completed, notCompleted, percentCompleted
     // for example: { date: '2024-01-01', completed: 5, notCompleted: 2, percent: 71.4 }
     useEffect(() => {
+        if (!startDate || !endDate) return;
         async function fetchRange() {
-            const dayMap = await apiGet(`/api/tasks/range?start=${startDate}&end=${endDate}`);
+            console.log("triggered here");
+            const dayMap = await apiGet(`/tasks/range?start=${startDate}&end=${endDate}`);
             const transformed = transformDayMapToChartData(dayMap);
             setChartData(transformed);
 
@@ -63,7 +65,7 @@ function TaskChartPage() {
             console.log(date);
             // In real usage, you'd fetch tasks from the server for that date
             // For now, we’ll just generate some fake tasks
-            const tasks = await apiGet(`/api/tasks/day/${date}`);
+            const tasks = await apiGet(`/tasks/day/${date}`);
             console.log(tasks);
             setSelectedDate(date);
             setSelectedDayTasks(tasks);
