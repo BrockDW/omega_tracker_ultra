@@ -40,17 +40,7 @@ function TaskChartPage() {
     // for example: { date: '2024-01-01', completed: 5, notCompleted: 2, percent: 71.4 }
     useEffect(() => {
         if (!startDate || !endDate) return;
-        async function fetchRange() {
-            console.log("triggered here");
-            const dayMap = await apiGet(`/tasks/range?start=${startDate}&end=${endDate}`);
-            const transformed = transformDayMapToChartData(dayMap);
-            setChartData(transformed);
 
-            setSelectedDate(null);
-            setSelectedDayTasks([]);
-
-            console.log(dayMap);
-        }
         // In real usage, you'd fetch from your server using startDate/endDate
         fetchRange();
         // const dummyData = generateDummyData(startDate, endDate);
@@ -89,6 +79,18 @@ function TaskChartPage() {
         setSelectedDayTasks([]);
     };
 
+    const fetchRange = async () => {
+        console.log("triggered here");
+        const dayMap = await apiGet(`/tasks/range?start=${startDate}&end=${endDate}`);
+        const transformed = transformDayMapToChartData(dayMap);
+        setChartData(transformed);
+
+        setSelectedDate(null);
+        setSelectedDayTasks([]);
+
+        console.log(dayMap);
+    }
+
 
     return (
         <div style={{ padding: "1rem" }}>
@@ -115,6 +117,8 @@ function TaskChartPage() {
                 </label>
                 {" "}
                 <button onClick={handleReset}>Reset Range</button>
+                {" "}
+                <button onClick={fetchRange}>Refresh</button>
             </div>
 
             {/* Combined Bar + Line Chart */}

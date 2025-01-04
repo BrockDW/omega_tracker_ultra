@@ -26,21 +26,21 @@ public class DailyEmailReminderService {
         mailgunEmailService.sendSimpleEmail(Constants.TARGET_EMAIL, subject, body);
     }
 
-    @Scheduled(cron = "0 0 8 * * ?")
-    public void morningReminder() {
-        List<Task> tasks = dailyTaskService.fetchMarkdownLocalDate(LocalDate.now());
-        if (!CollectionUtils.isEmpty(tasks)) {
-            // fetch tasks, highlight incomplete, etc.
-            String body = buildTaskEmailBody(tasks);
-            String subject = "Your tasks for today";
-            mailgunEmailService.sendSimpleEmail(Constants.TARGET_EMAIL, subject, body);
-        } else {
-            // note not found => remind again
-            String subject = "Reminder: Please create today's note!";
-            String body = "Hello,\nWe can't find today's note. Please create it.\n--Your Tracker";
-            mailgunEmailService.sendSimpleEmail(Constants.TARGET_EMAIL, subject, body);
-        }
-    }
+//    @Scheduled(cron = "0 0 8 * * ?")
+//    public void morningReminder() {
+//        List<Task> tasks = dailyTaskService.fetchMarkdownLocalDate(LocalDate.now());
+//        if (!CollectionUtils.isEmpty(tasks)) {
+//            // fetch tasks, highlight incomplete, etc.
+//            String body = buildTaskEmailBody(tasks);
+//            String subject = "Your tasks for today";
+//            mailgunEmailService.sendSimpleEmail(Constants.TARGET_EMAIL, subject, body);
+//        } else {
+//            // note not found => remind again
+//            String subject = "Reminder: Please create today's note!";
+//            String body = "Hello,\nWe can't find today's note. Please create it.\n--Your Tracker";
+//            mailgunEmailService.sendSimpleEmail(Constants.TARGET_EMAIL, subject, body);
+//        }
+//    }
 
     private String buildTaskEmailBody(List<Task> tasks) {
         // e.g. "Today's Tasks:\n - [ ] task1\n - [x] task2\n etc."

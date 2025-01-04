@@ -18,7 +18,7 @@ public class MailgunEmailService {
 
     public void sendSimpleEmail(String to, String subject, String text) {
         SimpleMailMessage message = new SimpleMailMessage();
-        message.setFrom("Your Name <" + Constants.SOURCE_EMAIL + ">");
+        message.setFrom(Constants.EMAIL_SUBJECT + " <" + Constants.SOURCE_EMAIL + ">");
         // or omit setFrom() if mailgun uses domain default
         message.setTo(to);
         message.setSubject(subject);
@@ -31,7 +31,7 @@ public class MailgunEmailService {
     public void sendHtmlEmail(String to, String subject, String htmlContent) throws MessagingException {
         MimeMessage mimeMessage = mailSender.createMimeMessage();
         MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, "UTF-8");
-        helper.setFrom("Your Name <" + Constants.SOURCE_EMAIL + ">");
+        helper.setFrom(Constants.EMAIL_SUBJECT + " <" + Constants.SOURCE_EMAIL + ">");
         helper.setTo(to);
         helper.setSubject(subject);
         helper.setText(htmlContent, true); // true = isHtml
