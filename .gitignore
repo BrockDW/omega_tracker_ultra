@@ -87,3 +87,4 @@ coverage/
 *.swp
 *.swo
 *~
+browser_cookies.txt
