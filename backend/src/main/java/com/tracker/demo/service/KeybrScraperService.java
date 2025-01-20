@@ -82,7 +82,8 @@ public class KeybrScraperService {
         options.addArguments("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
 
         System.out.println("linux system detected, using absolute path");
-        options.setBinary("/usr/bin/chromedriver");
+        options.setBinary("/usr/bin/chromium-browser");
+
         options.addArguments("--remote-debugging-port=9222");
         options.addArguments("--disable-setuid-sandbox");
         options.addArguments("--disable-gpu-sandbox");
@@ -99,10 +100,7 @@ public class KeybrScraperService {
         ));
 
         try {
-            if (StringUtils.hasText(chromeDriver)) {
-                System.setProperty("webdriver.chrome.driver", chromeDriver);
-            }
-            System.setProperty("webdriver.chrome.whitelistedIps", "");
+            System.setProperty("webdriver.chrome.driver", "/usr/bin/chromedriver");
 
             WebDriver driver = new ChromeDriver(options);
             driver.manage().timeouts().pageLoadTimeout(Duration.ofSeconds(30));
