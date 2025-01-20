@@ -1,0 +1,74 @@
+spring:
+  application:
+    name: demo
+  mail:
+    host: smtp.mailgun.org
+    port: 587
+    username: ${MAILGUN_USER_NAME}
+    password: ${MAILGUN_PASSWORD}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
+
+github:
+  repo:
+    owner: MykaelXiong
+    name: personal-note
+    branch: main
+  token: ${GITHUB_TOKEN}
+
+chatgpt:
+  email: placeholder
+  password: placeholder
+
+keybr:
+  auth:
+    google:
+      email: ${KEYBR_GOOGLE_EMAIL}
+      password: ${KEYBR_GOOGLE_PASSWORD}
+
+chrome:
+  settings:
+    stealth-args:
+      - "--disable-blink-features=AutomationControlled"
+      - "--disable-extensions"
+      - "--no-sandbox"
+      - "--headless=new"
+      - "--disable-dev-shm-usage"
+      - "--window-size=1920,1080"
+      - "--start-maximized"
+      - "--disable-gpu"
+      - "--ignore-certificate-errors"
+      - "--allow-running-insecure-content"
+      - "--disable-web-security"
+      - "--lang=en-US,en;q=0.9"
+    user-agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+
+---
+spring:
+  config:
+    activate:
+      on-profile: linux
+chrome:
+  binary: /usr/bin/chromium-browser
+  driver: /usr/bin/chromedriver
+  settings:
+    additional-args:
+      - "--remote-debugging-port=9222"
+      - "--disable-setuid-sandbox"
+      - "--disable-gpu-sandbox"
+
+---
+spring:
+  config:
+    activate:
+      on-profile: windows
+chrome:
+  binary:
+  driver:
+  settings:
+    additional-args: []

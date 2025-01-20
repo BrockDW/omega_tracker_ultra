@@ -8,6 +8,7 @@ import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.WebDriverWait;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 import java.io.File;
 import java.nio.file.Files;
@@ -25,6 +26,12 @@ public class KeybrScraperService {
 
     @Value("${keybr.auth.google.password}")
     private String googlePassword;
+
+    @Value("${chrome.binary:}")
+    private String chromeBinary;
+
+    @Value("${chrome.driver:}")
+    private String chromeDriver;
 
     public String getPracticeTimeWithSession() {
         WebDriver driver = null;
@@ -55,7 +62,25 @@ public class KeybrScraperService {
     }
 
     private WebDriver setupDriver() {
+        // Set system properties if paths are provided
+        if (!StringUtils.isEmpty(chromeDriver)) {
+            System.setProperty("webdriver.chrome.driver", chromeDriver);
+        }
+        if (!StringUtils.isEmpty(chromeBinary)) {
+            System.setProperty("webdriver.chrome.binary", chromeBinary);
+        }
+
         ChromeOptions options = new ChromeOptions();
+
+        // Set binary if provided (for Linux/RPi)
+        if (!StringUtils.isEmpty(chromeBinary)) {
+            options.setBinary(chromeBinary);
+
+            // Add ARM-specific arguments when binary is set (Linux/RPi case)
+            options.addArguments("--remote-debugging-port=9222");
+            options.addArguments("--disable-setuid-sandbox");
+            options.addArguments("--disable-gpu-sandbox");
+        }
 
         // Add stealth settings
         options.addArguments("--disable-blink-features=AutomationControlled");
@@ -86,19 +111,25 @@ public class KeybrScraperService {
         prefs.put("profile.password_manager_enabled", false);
         options.setExperimentalOption("prefs", prefs);
 
-        WebDriver driver = new ChromeDriver(options);
+        try {
+            WebDriver driver = new ChromeDriver(options);
 
-        // Add stealth scripts
-        ((JavascriptExecutor) driver).executeScript(
-                "Object.defineProperty(navigator, 'webdriver', {get: () => undefined});"
-        );
+            // Add stealth scripts
+            ((JavascriptExecutor) driver).executeScript(
+                    "Object.defineProperty(navigator, 'webdriver', {get: () => undefined});"
+            );
 
-        ((JavascriptExecutor) driver).executeScript(
-                "window.navigator.chrome = { runtime: {} };"
-        );
+            ((JavascriptExecutor) driver).executeScript(
+                    "window.navigator.chrome = { runtime: {} };"
+            );
 
-        System.out.println("Driver initialized successfully");
-        return driver;
+            System.out.println("Driver initialized successfully");
+            return driver;
+        } catch (Exception e) {
+            System.err.println("Failed to initialize driver: " + e.getMessage());
+            e.printStackTrace();
+            throw e;
+        }
     }
 
     private boolean attemptLoginWithCookies(WebDriver driver, WebDriverWait wait) {
