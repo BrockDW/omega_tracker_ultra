@@ -14,10 +14,7 @@ import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.time.Duration;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 @Service
 public class KeybrScraperService {
@@ -62,22 +59,21 @@ public class KeybrScraperService {
     }
 
     private WebDriver setupDriver() {
-        // Explicitly set the ChromeDriver path first
-        System.setProperty("webdriver.chrome.driver", "/usr/bin/chromedriver");
+        String os = System.getProperty("os.name").toLowerCase();
+        boolean isLinux = os.contains("linux");
 
         ChromeOptions options = new ChromeOptions();
 
-        // Explicitly set the binary path for Chromium
-        options.setBinary("/usr/bin/chromium-browser");
-
-        // Your existing options
+        // Common critical options
+        options.addArguments("--remote-allow-origins=*");
         options.addArguments("--disable-blink-features=AutomationControlled");
         options.addArguments("--disable-extensions");
         options.addArguments("--no-sandbox");
         options.addArguments("--headless=new");
         options.addArguments("--disable-dev-shm-usage");
         options.addArguments("--window-size=1920,1080");
-        options.addArguments("--start-maximized");
+        options.addArguments("--disable-popup-blocking");
+        options.addArguments("--disable-notifications");
         options.addArguments("--disable-gpu");
         options.addArguments("--ignore-certificate-errors");
         options.addArguments("--allow-running-insecure-content");
@@ -85,37 +81,39 @@ public class KeybrScraperService {
         options.addArguments("--lang=en-US,en;q=0.9");
         options.addArguments("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
 
-        // Add ARM-specific arguments
-        options.addArguments("--remote-debugging-port=9222");
-        options.addArguments("--disable-setuid-sandbox");
-        options.addArguments("--disable-gpu-sandbox");
+        // Linux-specific options
+        if (isLinux && StringUtils.hasText(chromeBinary)) {
+            System.out.println("linux system detected, using absolute path");
+            options.setBinary("/usr/bin/chromedriver");
+            options.addArguments("--remote-debugging-port=9222");
+            options.addArguments("--disable-setuid-sandbox");
+            options.addArguments("--disable-gpu-sandbox");
+        }
 
-        // Your existing experimental options
+        // Add experimental options
+        Map<String, Object> prefs = new HashMap<>();
+        prefs.put("profile.default_content_setting_values.notifications", 2);
+        prefs.put("credentials_enable_service", false);
+        prefs.put("profile.password_manager_enabled", false);
+        options.setExperimentalOption("prefs", prefs);
         options.setExperimentalOption("excludeSwitches", Arrays.asList(
                 "enable-automation",
                 "disable-popup-blocking"
         ));
 
-        Map<String, Object> prefs = new HashMap<>();
-        prefs.put("credentials_enable_service", false);
-        prefs.put("profile.password_manager_enabled", false);
-        options.setExperimentalOption("prefs", prefs);
-
         try {
+            if (StringUtils.hasText(chromeDriver)) {
+                System.setProperty("webdriver.chrome.driver", chromeDriver);
+            }
+            System.setProperty("webdriver.chrome.whitelistedIps", "");
+
             WebDriver driver = new ChromeDriver(options);
+            driver.manage().timeouts().pageLoadTimeout(Duration.ofSeconds(30));
+            driver.manage().timeouts().implicitlyWait(Duration.ofSeconds(10));
 
-            ((JavascriptExecutor) driver).executeScript(
-                    "Object.defineProperty(navigator, 'webdriver', {get: () => undefined});"
-            );
-
-            ((JavascriptExecutor) driver).executeScript(
-                    "window.navigator.chrome = { runtime: {} };"
-            );
-
-            System.out.println("Driver initialized successfully");
             return driver;
         } catch (Exception e) {
-            System.err.println("Failed to initialize driver: " + e.getMessage());
+            System.err.println("Failed to initialize driver on " + os + ": " + e.getMessage());
             e.printStackTrace();
             throw e;
         }
@@ -180,126 +178,82 @@ public class KeybrScraperService {
             System.out.println("Cookie login failed, proceeding with normal login...");
             driver.get("https://www.keybr.com/");
             System.out.println("Navigated to keybr.com");
-
-            // Wait for page to be fully loaded
             waitForPageLoad(driver, wait);
-            System.out.println("Page fully loaded");
             takeScreenshot(driver, "1_homepage");
 
-            // Wait for all animations to complete (additional safety)
-            Thread.sleep(3000);
-
-            // Click sign-in button with robust checks
-            try {
-                By signInLocator = By.xpath("//span[contains(@class, 'SKK4yTkTJW') and text()='Sign-In']");
-                WebElement signInButton = waitForElementSafely(driver, signInLocator, wait);
-
-                // Double-check if button is truly clickable
-                waitForElementToBeReady(signInButton, wait);
-                clickElementWithJS(driver, signInButton);
-                System.out.println("Clicked Sign-In button");
-                takeScreenshot(driver, "2_after_signin_click");
-            } catch (Exception e) {
-                System.out.println("Direct click failed, navigating to account page...");
-                driver.get("https://www.keybr.com/account");
-                waitForPageLoad(driver, wait);
-                takeScreenshot(driver, "2_account_page");
-            }
-
-            // Wait for page transition
+            // Click sign-in button
+            By signInLocator = By.xpath("//span[contains(@class, 'SKK4yTkTJW') and text()='Sign-In']");
+            WebElement signInButton = waitForElementSafely(driver, signInLocator, wait);
+            clickElementWithJS(driver, signInButton);
+            System.out.println("Clicked Sign-In button");
+            takeScreenshot(driver, "2_after_signin_click");
             Thread.sleep(2000);
-            waitForPageLoad(driver, wait);
 
-            // Try multiple selectors for Google sign-in button with validation
-            WebElement googleSignIn = null;
-            Exception lastException = null;
+            // Click Google sign-in button
+            By googleSignInLocator = By.xpath("//button[contains(., 'Sign-in with Google')]");
+            WebElement googleSignInButton = wait.until(ExpectedConditions.elementToBeClickable(googleSignInLocator));
+            Thread.sleep(1000);
+            clickElementWithJS(driver, googleSignInButton);
+            System.out.println("Clicked Google sign-in button");
+            Thread.sleep(3000);  // Wait for popup or redirect
 
-            String[] googleSignInXPaths = {
-                    "//button[contains(., 'SIGN-IN WITH GOOGLE')]",
-                    "//button[contains(., 'Sign-in with Google')]",
-                    "//button[.//div[contains(text(), 'Sign-in with Google')]]",
-                    "//div[contains(@class, 'SignIn')]//button[1]"
-            };
+            // Check if we're already on the Google login page
+            String currentUrl = driver.getCurrentUrl();
+            System.out.println("Current URL: " + currentUrl);
 
-            for (String xpath : googleSignInXPaths) {
-                try {
-                    By locator = By.xpath(xpath);
-                    googleSignIn = waitForElementSafely(driver, locator, wait);
-                    if (googleSignIn != null && googleSignIn.isDisplayed() && googleSignIn.isEnabled()) {
-                        System.out.println("Found Google sign-in button with xpath: " + xpath);
+            // If not on Google login page, try to switch to popup
+            if (!currentUrl.contains("accounts.google.com")) {
+                String mainWindow = driver.getWindowHandle();
+                Set<String> handles = driver.getWindowHandles();
+                System.out.println("Available windows: " + handles.size());
+
+                for (String handle : handles) {
+                    if (!handle.equals(mainWindow)) {
+                        driver.switchTo().window(handle);
                         break;
                     }
-                } catch (Exception e) {
-                    lastException = e;
-                    System.out.println("Failed to find button with xpath: " + xpath);
                 }
             }
 
-            if (googleSignIn == null) {
-                throw new RuntimeException("Could not find Google sign-in button", lastException);
-            }
+            // Now handle the Google login form
+            takeScreenshot(driver, "3_google_login");
+            System.out.println("Current URL before email: " + driver.getCurrentUrl());
 
-            // Extra validation before clicking
-            waitForElementToBeReady(googleSignIn, wait);
-            clickElementWithJS(driver, googleSignIn);
-            System.out.println("Clicked Google sign-in button");
-            takeScreenshot(driver, "3_before_google_popup");
+            // Wait for and enter email
+            By emailInputLocator = By.cssSelector("input[type='email']");
+            wait.until(ExpectedConditions.elementToBeClickable(emailInputLocator));
+            WebElement emailInput = driver.findElement(emailInputLocator);
+            emailInput.clear();
+            emailInput.sendKeys(googleEmail);
+            Thread.sleep(1000);
+            emailInput.sendKeys(Keys.ENTER);
+            System.out.println("Entered email");
+            takeScreenshot(driver, "4_after_email");
 
+            // Wait for and enter password
             Thread.sleep(2000);
+            By passwordInputLocator = By.cssSelector("input[type='password']");
+            wait.until(ExpectedConditions.elementToBeClickable(passwordInputLocator));
+            WebElement passwordInput = driver.findElement(passwordInputLocator);
+            passwordInput.clear();
+            passwordInput.sendKeys(googlePassword);
+            Thread.sleep(1000);
+            passwordInput.sendKeys(Keys.ENTER);
+            System.out.println("Entered password");
+            takeScreenshot(driver, "5_after_password");
 
-            // Rest of the code remains exactly the same...
-            String mainWindow = driver.getWindowHandle();
-            System.out.println("Available windows before switch: " + driver.getWindowHandles().size());
-
-            for(String windowHandle : driver.getWindowHandles()) {
-                if(!mainWindow.equals(windowHandle)) {
-                    driver.switchTo().window(windowHandle);
-                    System.out.println("Switched to window: " + driver.getCurrentUrl());
-                    break;
-                }
-            }
-            takeScreenshot(driver, "4_google_login_page");
-
-            // Print page source for debugging
-            System.out.println("Current page source:");
-            System.out.println(driver.getPageSource().substring(0, Math.min(500, driver.getPageSource().length())));
-
-            // Enter email
-            try {
-                WebElement emailInput = wait.until(ExpectedConditions.presenceOfElementLocated(
-                        By.cssSelector("input[type='email']")
-                ));
-                emailInput.sendKeys(googleEmail);
-                emailInput.sendKeys(Keys.ENTER);
-                System.out.println("Entered email");
-                takeScreenshot(driver, "5_after_email");
-            } catch (Exception e) {
-                System.out.println("Failed to find email input. Available elements:");
-                List<WebElement> inputs = driver.findElements(By.tagName("input"));
-                inputs.forEach(input -> System.out.println("Input type: " + input.getAttribute("type")));
-                takeScreenshot(driver, "5_email_error");
-                throw e;
+            // If we switched to a popup, switch back to main window
+            if (!currentUrl.contains("accounts.google.com")) {
+                driver.switchTo().window(driver.getWindowHandles().iterator().next());
             }
 
-            Thread.sleep(2000);
+            // Wait for successful login
+            wait.until(ExpectedConditions.presenceOfElementLocated(
+                    By.xpath("//span[text()='Practice']")));
+            System.out.println("Successfully logged in");
 
-            // Enter password with additional debugging
-            try {
-                WebElement passwordInput = wait.until(ExpectedConditions.presenceOfElementLocated(
-                        By.cssSelector("input[type='password']")
-                ));
-                passwordInput.sendKeys(googlePassword);
-                passwordInput.sendKeys(Keys.ENTER);
-                System.out.println("Entered password");
-                takeScreenshot(driver, "6_after_password");
-            } catch (Exception e) {
-                System.out.println("Failed to find password input. Current URL: " + driver.getCurrentUrl());
-                System.out.println("Page source:");
-                System.out.println(driver.getPageSource().substring(0, Math.min(500, driver.getPageSource().length())));
-                takeScreenshot(driver, "6_password_error");
-                throw e;
-            }
         } catch (Exception e) {
+            System.err.println("Login failed: " + e.getMessage());
             takeScreenshot(driver, "error_state");
             throw new RuntimeException("Login failed: " + e.getMessage(), e);
         }
@@ -358,6 +312,39 @@ public class KeybrScraperService {
             System.out.println("Screenshot saved: " + filename + ".png");
         } catch (Exception e) {
             System.err.println("Failed to take screenshot: " + e.getMessage());
+        }
+    }
+
+    // Add this new helper method for handling stale elements
+    private WebElement waitForElementWithRetry(WebDriver driver, WebDriverWait wait, By locator, int maxAttempts) {
+        for (int attempt = 0; attempt < maxAttempts; attempt++) {
+            try {
+                WebElement element = wait.until(ExpectedConditions.presenceOfElementLocated(locator));
+                wait.until(ExpectedConditions.elementToBeClickable(element));
+                ((JavascriptExecutor) driver).executeScript("arguments[0].scrollIntoView(true);", element);
+                // Try to interact with element to verify it's truly available
+                element.isEnabled();
+                return element;
+            } catch (StaleElementReferenceException e) {
+                if (attempt == maxAttempts - 1) throw e;
+                System.out.println("Stale element, retrying... Attempt " + (attempt + 1));
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                }
+            }
+        }
+        throw new RuntimeException("Element not found after " + maxAttempts + " attempts");
+    }
+
+    private void printPageSource(WebDriver driver) {
+        try {
+            System.out.println("Current URL: " + driver.getCurrentUrl());
+            System.out.println("Page source preview: " +
+                    driver.getPageSource().substring(0, Math.min(1000, driver.getPageSource().length())));
+        } catch (Exception e) {
+            System.out.println("Failed to print page source: " + e.getMessage());
         }
     }
 }

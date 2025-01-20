@@ -33,6 +33,10 @@ keybr:
 
 chrome:
   settings:
+    additional-args:
+      - "--remote-debugging-port=9222"
+      - "--disable-setuid-sandbox"
+      - "--disable-gpu-sandbox"
     stealth-args:
       - "--disable-blink-features=AutomationControlled"
       - "--disable-extensions"
