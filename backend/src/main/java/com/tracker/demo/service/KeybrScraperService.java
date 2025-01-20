@@ -62,34 +62,20 @@ public class KeybrScraperService {
     }
 
     private WebDriver setupDriver() {
-        // Set system properties if paths are provided
-        if (!StringUtils.isEmpty(chromeDriver)) {
-            System.setProperty("webdriver.chrome.driver", chromeDriver);
-        }
-        if (!StringUtils.isEmpty(chromeBinary)) {
-            System.setProperty("webdriver.chrome.binary", chromeBinary);
-        }
+        // Explicitly set the ChromeDriver path first
+        System.setProperty("webdriver.chrome.driver", "/usr/bin/chromedriver");
 
         ChromeOptions options = new ChromeOptions();
 
-        // Set binary if provided (for Linux/RPi)
-        if (!StringUtils.isEmpty(chromeBinary)) {
-            options.setBinary(chromeBinary);
+        // Explicitly set the binary path for Chromium
+        options.setBinary("/usr/bin/chromium-browser");
 
-            // Add ARM-specific arguments when binary is set (Linux/RPi case)
-            options.addArguments("--remote-debugging-port=9222");
-            options.addArguments("--disable-setuid-sandbox");
-            options.addArguments("--disable-gpu-sandbox");
-        }
-
-        // Add stealth settings
+        // Your existing options
         options.addArguments("--disable-blink-features=AutomationControlled");
         options.addArguments("--disable-extensions");
         options.addArguments("--no-sandbox");
         options.addArguments("--headless=new");
         options.addArguments("--disable-dev-shm-usage");
-
-        // Add additional stealth settings
         options.addArguments("--window-size=1920,1080");
         options.addArguments("--start-maximized");
         options.addArguments("--disable-gpu");
@@ -99,13 +85,17 @@ public class KeybrScraperService {
         options.addArguments("--lang=en-US,en;q=0.9");
         options.addArguments("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
 
-        // Add experimental flags
+        // Add ARM-specific arguments
+        options.addArguments("--remote-debugging-port=9222");
+        options.addArguments("--disable-setuid-sandbox");
+        options.addArguments("--disable-gpu-sandbox");
+
+        // Your existing experimental options
         options.setExperimentalOption("excludeSwitches", Arrays.asList(
                 "enable-automation",
                 "disable-popup-blocking"
         ));
 
-        // Add additional preferences
         Map<String, Object> prefs = new HashMap<>();
         prefs.put("credentials_enable_service", false);
         prefs.put("profile.password_manager_enabled", false);
@@ -114,7 +104,6 @@ public class KeybrScraperService {
         try {
             WebDriver driver = new ChromeDriver(options);
 
-            // Add stealth scripts
             ((JavascriptExecutor) driver).executeScript(
                     "Object.defineProperty(navigator, 'webdriver', {get: () => undefined});"
             );
