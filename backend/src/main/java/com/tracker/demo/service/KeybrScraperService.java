@@ -81,14 +81,11 @@ public class KeybrScraperService {
         options.addArguments("--lang=en-US,en;q=0.9");
         options.addArguments("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
 
-        // Linux-specific options
-        if (isLinux && StringUtils.hasText(chromeBinary)) {
-            System.out.println("linux system detected, using absolute path");
-            options.setBinary("/usr/bin/chromedriver");
-            options.addArguments("--remote-debugging-port=9222");
-            options.addArguments("--disable-setuid-sandbox");
-            options.addArguments("--disable-gpu-sandbox");
-        }
+        System.out.println("linux system detected, using absolute path");
+        options.setBinary("/usr/bin/chromedriver");
+        options.addArguments("--remote-debugging-port=9222");
+        options.addArguments("--disable-setuid-sandbox");
+        options.addArguments("--disable-gpu-sandbox");
 
         // Add experimental options
         Map<String, Object> prefs = new HashMap<>();
