@@ -31,41 +31,46 @@ keybr:
       email: ${KEYBR_GOOGLE_EMAIL}
       password: ${KEYBR_GOOGLE_PASSWORD}
 
+
+screenshot:
+  path: "./screenshots"
+
 chrome:
+  binary: ""
+  driver: ""
   settings:
-    additional-args:
-      - "--remote-debugging-port=9222"
-      - "--disable-setuid-sandbox"
-      - "--disable-gpu-sandbox"
-    stealth-args:
+    userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    additionalArgs:
       - "--disable-blink-features=AutomationControlled"
       - "--disable-extensions"
       - "--no-sandbox"
-      - "--headless=new"
       - "--disable-dev-shm-usage"
       - "--window-size=1920,1080"
-      - "--start-maximized"
       - "--disable-gpu"
       - "--ignore-certificate-errors"
       - "--allow-running-insecure-content"
       - "--disable-web-security"
       - "--lang=en-US,en;q=0.9"
-    user-agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    stealthArgs:
+      - "--remote-debugging-port=9222"
+      - "--disable-setuid-sandbox"
+      - "--disable-gpu-sandbox"
 
+# =======================================
+# Linux profile overrides
+# =======================================
 ---
 spring:
   config:
     activate:
       on-profile: linux
 chrome:
-  binary: /usr/bin/chromium-browser
-  driver: /usr/bin/chromedriver
-  settings:
-    additional-args:
-      - "--remote-debugging-port=9222"
-      - "--disable-setuid-sandbox"
-      - "--disable-gpu-sandbox"
+  binary: "/usr/bin/chromium-browser"
+  driver: "/usr/bin/chromedriver"
 
+# =======================================
+# Windows profile overrides
+# =======================================
 ---
 spring:
   config:
@@ -74,5 +79,3 @@ spring:
 chrome:
   binary:
   driver:
-  settings:
-    additional-args: []

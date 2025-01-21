@@ -3,6 +3,7 @@ package com.tracker.demo.controller;
 import com.tracker.demo.constants.Constants;
 import com.tracker.demo.service.ChatGPTLoginService;
 import com.tracker.demo.service.KeybrScraperService;
+import com.tracker.demo.service.KeybrScraperServiceV2;
 import com.tracker.demo.service.MailgunEmailService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -19,6 +20,9 @@ public class TestController {
 
     @Autowired
     private KeybrScraperService keybrScraperService;
+
+    @Autowired
+    private KeybrScraperServiceV2 keybrScraperServiceV2;
 
     @GetMapping("/scrape-chatgpt")
     public String scrapeChatGPT() {
@@ -39,5 +43,10 @@ public class TestController {
     @GetMapping("/practice-time")
     public String getPracticeTime() {
         return keybrScraperService.getPracticeTimeWithSession();
+    }
+
+    @GetMapping("/practice-time-v2")
+    public String getPracticeTimeV2() {
+        return keybrScraperServiceV2.getPracticeTimeWithSession();
     }
 }
