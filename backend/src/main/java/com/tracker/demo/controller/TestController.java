@@ -40,7 +40,7 @@ public class TestController {
         return "Test email sent to " + Constants.TARGET_EMAIL;
     }
 
-    @GetMapping("/practice-time")
+//    @GetMapping("/practice-time")
     public String getPracticeTime() {
         return keybrScraperService.getPracticeTimeWithSession();
     }

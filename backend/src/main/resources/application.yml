@@ -13,6 +13,17 @@ spring:
           starttls:
             enable: true
             required: true
+  datasource:
+    url: jdbc:postgresql://localhost:5432/omega_tracker_db
+    username: omega_tracker
+    password: ${DB_PASSWORD}
+
+  jpa:
+    # Tells JPA how to handle schema changes
+    hibernate:
+      ddl-auto: update
+    # If you want to see SQL statements in the logs
+    show-sql: true
 
 github:
   repo:
@@ -30,7 +41,6 @@ keybr:
     google:
       email: ${KEYBR_GOOGLE_EMAIL}
       password: ${KEYBR_GOOGLE_PASSWORD}
-
 
 screenshot:
   path: "./screenshots"

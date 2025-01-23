@@ -1,5 +1,7 @@
 package com.tracker.demo.service;
 
+import com.tracker.demo.sql.entity.KeyBrPracticeRecord;
+import com.tracker.demo.sql.repository.KeyBrPracticeRecordRepository;
 import com.tracker.demo.util.CookieManager;
 import com.tracker.demo.util.ScreenshotUtil;
 import com.tracker.demo.util.WebDriverManager;
@@ -14,6 +16,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
+import java.time.LocalDate;
 
 @Service
 public class KeybrScraperServiceV2 {
@@ -33,12 +36,14 @@ public class KeybrScraperServiceV2 {
     @Autowired
     private WebDriverManager webDriverManager;
 
+    @Autowired
+    private KeyBrPracticeRecordRepository keyBrPracticeRecordRepository;
+
     public String getPracticeTimeWithSession() {
         WebDriver driver = null;
         try {
-            // 1. Setup driver (headless = true for example)
+            // 1. Setup driver (headless = true, for example)
             driver = webDriverManager.createChromeDriver(true);
-
             WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(30));
 
             // 2. Attempt cookie login
@@ -47,7 +52,7 @@ public class KeybrScraperServiceV2 {
                 doFullLoginFlow(driver, wait);
             }
 
-            // 4. Get the practice time
+            // 4. Scrape the practice time
             return getPracticeTime(driver, wait);
 
         } catch (Exception e) {
@@ -66,6 +71,11 @@ public class KeybrScraperServiceV2 {
         }
     }
 
+    /**
+     * Attempts to load cookies from file and navigate to Keybr.
+     * If the user is already logged in from stored cookies,
+     * the "Practice" button should be clickable.
+     */
     private boolean attemptLoginWithCookies(WebDriver driver, WebDriverWait wait) {
         try {
             driver.get("https://www.keybr.com/");
@@ -78,8 +88,9 @@ public class KeybrScraperServiceV2 {
             driver.navigate().refresh();
             Thread.sleep(2000);
 
-            // If we're logged in, the "Practice" button should be clickable
+            // If the user is logged in, "Practice" button should be clickable
             wait.until(ExpectedConditions.elementToBeClickable(By.xpath("//span[text()='Practice']")));
+            System.out.println("Successfully logged in via saved cookies.");
             return true;
         } catch (Exception e) {
             System.err.println("Cookie login failed: " + e.getMessage());
@@ -87,6 +98,9 @@ public class KeybrScraperServiceV2 {
         }
     }
 
+    /**
+     * Performs the full Google login flow and then saves cookies.
+     */
     private void doFullLoginFlow(WebDriver driver, WebDriverWait wait) throws InterruptedException {
         ScreenshotUtil screenshotUtil = new ScreenshotUtil(screenshotPath);
         GoogleLoginService googleLogin = new GoogleLoginService(googleEmail, googlePassword, screenshotUtil);
@@ -97,7 +111,8 @@ public class KeybrScraperServiceV2 {
 
         // Click sign-in
         By signInLocator = By.xpath("//span[contains(@class, 'SKK4yTkTJW') and text()='Sign-In']");
-        WebElement signInButton = WebElementUtils.waitForElementClickable(driver, signInLocator, Duration.ofSeconds(30));
+        WebElement signInButton =
+                WebElementUtils.waitForElementClickable(driver, signInLocator, Duration.ofSeconds(30));
         WebElementUtils.clickElementWithJS(driver, signInButton);
         Thread.sleep(2000);
 
@@ -108,14 +123,21 @@ public class KeybrScraperServiceV2 {
         WebElementUtils.clickElementWithJS(driver, googleSignInButton);
         Thread.sleep(3000);
 
-        // In case a new window opened
+        // If a new window opened, handle it in googleLogin
         String mainWindow = driver.getWindowHandle();
         googleLogin.loginWithGoogle(driver, mainWindow);
 
-        // Wait for Keybr landing or main page
+        // Wait for Keybr main page
         wait.until(ExpectedConditions.elementToBeClickable(By.xpath("//span[text()='Practice']")));
+
+        // ===== NEW: Save cookies to file =====
+        CookieManager.saveCookies(driver);
+        System.out.println("Cookies saved after successful Google login.");
     }
 
+    /**
+     * Scrapes the daily goal text, parses the result, and stores the record.
+     */
     private String getPracticeTime(WebDriver driver, WebDriverWait wait) throws InterruptedException {
         // Click "Practice"
         By practiceButtonLocator = By.xpath("//span[text()='Practice']");
@@ -125,11 +147,14 @@ public class KeybrScraperServiceV2 {
         Thread.sleep(2000);
 
         // Get daily goal text
-        By dailyGoalLocator = By.xpath("//span[contains(text(), 'Daily goal:')]/following-sibling::span//span[contains(@class, 'ZiMQFjE365')]");
+        By dailyGoalLocator = By.xpath(
+                "//span[contains(text(), 'Daily goal:')]/following-sibling::span" +
+                        "//span[contains(@class, 'ZiMQFjE365')]"
+        );
         WebElement dailyGoalText = wait.until(ExpectedConditions.presenceOfElementLocated(dailyGoalLocator));
         String dailyGoalValue = dailyGoalText.getText();
 
-        // Parse the text (e.g., "40%/5 minutes")
+        // dailyGoalValue example: "40%/5 minutes"
         String[] parts = dailyGoalValue.split("/");
         if (parts.length == 2) {
             String percentageStr = parts[0].replace("%", "").trim();
@@ -138,6 +163,8 @@ public class KeybrScraperServiceV2 {
             double percentage = Double.parseDouble(percentageStr);
             double totalMinutes = Double.parseDouble(totalMinutesStr);
             double minutesPracticed = (percentage / 100.0) * totalMinutes;
+
+            keyBrPracticeRecordRepository.upsertPracticeRecord(LocalDate.now(), minutesPracticed);
 
             return String.format(
                     "Total goal: %.0f minutes, Completed: %.1f minutes (%.1f%%)",
