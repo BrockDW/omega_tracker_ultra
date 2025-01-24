@@ -1,6 +1,6 @@
 package com.tracker.demo.service;
 
-import com.tracker.demo.sql.entity.KeyBrPracticeRecord;
+import com.tracker.demo.dto.KeyBrPracticeResult;
 import com.tracker.demo.sql.repository.KeyBrPracticeRecordRepository;
 import com.tracker.demo.util.CookieManager;
 import com.tracker.demo.util.ScreenshotUtil;
@@ -39,7 +39,7 @@ public class KeybrScraperServiceV2 {
     @Autowired
     private KeyBrPracticeRecordRepository keyBrPracticeRecordRepository;
 
-    public String getPracticeTimeWithSession() {
+    public KeyBrPracticeResult getPracticeTimeWithSession() {
         WebDriver driver = null;
         try {
             // 1. Setup driver (headless = true, for example)
@@ -58,7 +58,7 @@ public class KeybrScraperServiceV2 {
         } catch (Exception e) {
             System.err.println("Failed to get practice time: " + e.getMessage());
             e.printStackTrace();
-            return "Error: " + e.getMessage();
+            return null;
         } finally {
             // Cleanup
             if (driver != null) {
@@ -138,7 +138,7 @@ public class KeybrScraperServiceV2 {
     /**
      * Scrapes the daily goal text, parses the result, and stores the record.
      */
-    private String getPracticeTime(WebDriver driver, WebDriverWait wait) throws InterruptedException {
+    private KeyBrPracticeResult getPracticeTime(WebDriver driver, WebDriverWait wait) throws InterruptedException {
         // Click "Practice"
         By practiceButtonLocator = By.xpath("//span[text()='Practice']");
         WebElement practiceButton = wait.until(ExpectedConditions.elementToBeClickable(practiceButtonLocator));
@@ -157,6 +157,7 @@ public class KeybrScraperServiceV2 {
         // dailyGoalValue example: "40%/5 minutes"
         String[] parts = dailyGoalValue.split("/");
         if (parts.length == 2) {
+            // Parse the two segments
             String percentageStr = parts[0].replace("%", "").trim();
             String totalMinutesStr = parts[1].replace("minutes", "").trim();
 
@@ -164,13 +165,15 @@ public class KeybrScraperServiceV2 {
             double totalMinutes = Double.parseDouble(totalMinutesStr);
             double minutesPracticed = (percentage / 100.0) * totalMinutes;
 
-            keyBrPracticeRecordRepository.upsertPracticeRecord(LocalDate.now(), minutesPracticed);
+            // Store record in DB
+            keyBrPracticeRecordRepository.upsertPracticeRecord(LocalDate.now(), minutesPracticed, percentage, totalMinutes);
 
-            return String.format(
-                    "Total goal: %.0f minutes, Completed: %.1f minutes (%.1f%%)",
-                    totalMinutes, minutesPracticed, percentage
-            );
+            // Return the new DTO
+            return new KeyBrPracticeResult(percentage, totalMinutes, minutesPracticed);
         }
-        return "Could not parse practice time";
+
+        // If not parsed correctly, return a "fallback" object or throw an exception
+        return new KeyBrPracticeResult(0.0, 0.0, 0.0);
     }
+
 }

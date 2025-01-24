@@ -1,9 +1,6 @@
 package com.tracker.demo.sql.entity;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
+import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -20,14 +17,22 @@ public class KeyBrPracticeRecord {
     private LocalDate practiceDate;
     private double minutesPracticed;
 
+    @Column(nullable = false, columnDefinition = "FLOAT8 DEFAULT 0.0")
+    private double percentage = 0.0;
+
+    @Column(nullable = false, columnDefinition = "FLOAT8 DEFAULT 0.0")
+    private double totalMinutes = 30.0;
+
     public KeyBrPracticeRecord() {
 
     }
 
-    public KeyBrPracticeRecord(Long id, LocalDate date, double minutesPracticed) {
+    public KeyBrPracticeRecord(Long id, LocalDate date, double minutesPracticed, double percentage, double totalMinutes) {
         this.id = id;
         this.practiceDate = date;
         this.minutesPracticed = minutesPracticed;
+        this.percentage = percentage;
+        this.totalMinutes = totalMinutes;
     }
 
 }

@@ -1,6 +1,6 @@
 package com.tracker.demo.service;
 
-import com.tracker.demo.obj.Task;
+import com.tracker.demo.dto.Task;
 import org.springframework.stereotype.Service;
 
 import java.time.DayOfWeek;

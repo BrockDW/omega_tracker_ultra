@@ -1,4 +1,4 @@
-package com.tracker.demo.obj;
+package com.tracker.demo.dto;
 
 public class Task {
     private String description;

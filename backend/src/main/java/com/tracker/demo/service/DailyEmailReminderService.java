@@ -1,7 +1,7 @@
 package com.tracker.demo.service;
 
 import com.tracker.demo.constants.Constants;
-import com.tracker.demo.obj.Task;
+import com.tracker.demo.dto.Task;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;

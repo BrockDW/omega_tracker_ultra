@@ -1,6 +1,7 @@
 package com.tracker.demo.controller;
 
 import com.tracker.demo.constants.Constants;
+import com.tracker.demo.dto.KeyBrPracticeResult;
 import com.tracker.demo.service.ChatGPTLoginService;
 import com.tracker.demo.service.KeybrScraperService;
 import com.tracker.demo.service.KeybrScraperServiceV2;
@@ -46,7 +47,7 @@ public class TestController {
     }
 
     @GetMapping("/practice-time-v2")
-    public String getPracticeTimeV2() {
+    public KeyBrPracticeResult getPracticeTimeV2() {
         return keybrScraperServiceV2.getPracticeTimeWithSession();
     }
 }

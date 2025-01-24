@@ -15,15 +15,22 @@ import java.util.Optional;
 @Repository
 public interface KeyBrPracticeRecordRepository extends JpaRepository<KeyBrPracticeRecord, Long> {
     @Query(value = """
-        INSERT INTO key_br_practice_record (practice_date, minutes_practiced)
-        VALUES (:practiceDate, :minutesPracticed)
+        INSERT INTO key_br_practice_record (practice_date, minutes_practiced, percentage, total_minutes)
+        VALUES (:practiceDate, :minutesPracticed, :percentage, :totalMinutes)
         ON CONFLICT (practice_date)
-        DO UPDATE SET minutes_practiced = EXCLUDED.minutes_practiced
-        """, nativeQuery = true)
-    // Add these annotations:
+        DO UPDATE 
+            SET minutes_practiced = EXCLUDED.minutes_practiced,
+                percentage = EXCLUDED.percentage,
+                total_minutes = EXCLUDED.total_minutes
+        """,
+            nativeQuery = true)
     @Modifying
     @Transactional
     void upsertPracticeRecord(@Param("practiceDate") LocalDate practiceDate,
-                              @Param("minutesPracticed") double minutesPracticed);
+                              @Param("minutesPracticed") double minutesPracticed,
+                              @Param("percentage") double percentage,
+                              @Param("totalMinutes") double totalMinutes);
+
+    KeyBrPracticeRecord findByPracticeDate(LocalDate practiceDate);
 }
 
