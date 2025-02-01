@@ -4,28 +4,48 @@ import {
     ResponsiveContainer, ComposedChart
 } from "recharts";
 import { apiGet } from "../util/apiClient";
-
-// This page shows a combined bar + line chart using Recharts' "ComposedChart"
+import { Client } from '@stomp/stompjs';
+import SockJS from 'sockjs-client';
+import { createWebSocketClient } from "../util/apiClient";
 
 function TaskChartPage() {
-    // 1) State for date range
+    // Existing state for task chart
     const [startDate, setStartDate] = useState("");
     const [endDate, setEndDate] = useState("");
-
-    // 2) State for chart data
     const [chartData, setChartData] = useState([]);
-
-    // 3) State for selected day’s tasks (when clicking bar/line)
     const [selectedDayTasks, setSelectedDayTasks] = useState([]);
     const [selectedDate, setSelectedDate] = useState(null);
-
-    // 4) State for practice metrics from /day/{date}/v2
     const [practiceMetrics, setPracticeMetrics] = useState(null);
-
-    // 5) NEW: loading indicator for day details
     const [isDayDataLoading, setIsDayDataLoading] = useState(false);
 
-    // On initial load, compute "today" and "today minus 7" and set them as the date range
+    // New state for WebSocket data
+    const [sensorData, setSensorData] = useState({ rawValue: null, weight: null });
+
+    // WebSocket connection
+    useEffect(() => {
+        // Create WebSocket client
+        const client = createWebSocketClient(
+          (client) => {
+            // On connect, subscribe to the topic
+            client.subscribe('/topic/sensor-data', (message) => {
+              const data = JSON.parse(message.body);
+              setSensorData(data);
+              console.log('Received sensor data:', data);
+            });
+          },
+          (error) => {
+            console.error('WebSocket connection error:', error);
+          }
+        );
+
+        client.activate();
+
+        return () => {
+            client.deactivate();
+        };
+    }, []);
+
+    // Existing useEffect for initial load
     useEffect(() => {
         const today = new Date();
         const todayStr = today.toISOString().split("T")[0];
@@ -38,13 +58,13 @@ function TaskChartPage() {
         setStartDate(minus7Str);
     }, []);
 
-    // Whenever startDate or endDate changes, fetch the chart data
+    // Existing useEffect for date range change
     useEffect(() => {
         if (!startDate || !endDate) return;
         fetchRange();
     }, [startDate, endDate]);
 
-    // Fetch the aggregated data for the date range to fill the chart
+    // Existing fetchRange function
     const fetchRange = async () => {
         console.log("Fetching range data...");
         const dayMap = await apiGet(`/tasks/range?start=${startDate}&end=${endDate}`);
@@ -55,50 +75,37 @@ function TaskChartPage() {
         setSelectedDate(null);
         setSelectedDayTasks([]);
         setPracticeMetrics(null);
-        setIsDayDataLoading(false); // just in case
+        setIsDayDataLoading(false);
 
         console.log(dayMap);
     };
 
-    // Handler for bar/line click
-    // We'll now call the new endpoint: GET /day/{date}/v2
+    // Existing handleChartClick function
     const handleChartClick = async (data) => {
         if (data && data.activePayload && data.activePayload.length > 0) {
             const { date } = data.activePayload[0].payload;
             console.log("Clicked date:", date);
 
-            // Immediately set selectedDate so the UI can display "Tasks for {date}"
             setSelectedDate(date);
             setSelectedDayTasks([]);
             setPracticeMetrics(null);
             setIsDayDataLoading(true);
 
             try {
-                // Fetch from your new endpoint
                 const dayData = await apiGet(`/tasks/day/${date}/v2`);
                 console.log("Day data:", dayData);
-
-                // dayData = {
-                //   date: "2025-01-24",
-                //   tasks: [...],
-                //   keyBrPracticeResult: {
-                //     percentage, totalMinutes, minutesPracticed
-                //   }
-                // }
 
                 setSelectedDayTasks(dayData.tasks || []);
                 setPracticeMetrics(dayData.keyBrPracticeResult || null);
             } catch (err) {
                 console.error("Failed to fetch day data:", err);
-                // Optionally set some error state if needed
             } finally {
-                // Hide loading spinner
                 setIsDayDataLoading(false);
             }
         }
     };
 
-    // Reset button logic: set startDate and endDate again to "today" and "today minus 7"
+    // Existing handleReset function
     const handleReset = () => {
         const today = new Date();
         const todayStr = today.toISOString().split("T")[0];
@@ -110,7 +117,6 @@ function TaskChartPage() {
         setEndDate(todayStr);
         setStartDate(minus7Str);
 
-        // clear state
         setSelectedDate(null);
         setSelectedDayTasks([]);
         setPracticeMetrics(null);
@@ -161,7 +167,6 @@ function TaskChartPage() {
                         <Tooltip />
                         <Legend />
 
-                        {/* One stacked bar with "completed" at the bottom, "notCompleted" on top */}
                         <Bar
                             yAxisId="left"
                             dataKey="completed"
@@ -177,7 +182,6 @@ function TaskChartPage() {
                             name="Not Completed"
                         />
 
-                        {/* The line for percent completed */}
                         <Line
                             yAxisId="right"
                             type="monotone"
@@ -196,7 +200,6 @@ function TaskChartPage() {
                     <>
                         <h3>Tasks for {selectedDate}</h3>
 
-                        {/* If data is still loading, show a loading indicator */}
                         {isDayDataLoading ? (
                             <p>Loading...</p>
                         ) : (
@@ -213,7 +216,6 @@ function TaskChartPage() {
                                     <p>No tasks found.</p>
                                 )}
 
-                                {/* Practice metrics */}
                                 {practiceMetrics ? (
                                     <div style={{ marginTop: "1rem" }}>
                                         <h4>Practice Metrics</h4>
@@ -233,26 +235,24 @@ function TaskChartPage() {
                     <p>Click on a bar or line data point to see that day’s tasks and practice metrics.</p>
                 )}
             </div>
+
+            {/* New Section: WebSocket Data */}
+            <div style={{ marginTop: "2rem", border: "1px solid #ccc", padding: "1rem" }}>
+                <h3>Real-Time Sensor Data</h3>
+                {sensorData.rawValue !== null ? (
+                    <div>
+                        <p>Raw Value: <strong>{sensorData.rawValue}</strong></p>
+                        <p>Weight: <strong>{sensorData.weight} kg</strong></p>
+                    </div>
+                ) : (
+                    <p>No sensor data received yet.</p>
+                )}
+            </div>
         </div>
     );
 }
 
-/**
- * Helper function: transformDayMapToChartData
- *
- * dayMap example:
- * {
- *   "2024-01-01": [ {description, completed}, {description, completed}, ... ],
- *   "2024-01-02": [],
- *   ...
- * }
- *
- * We produce an array of objects:
- * [
- *   { date, completed, notCompleted, percent },
- *   ...
- * ]
- */
+// Existing transformDayMapToChartData function
 function transformDayMapToChartData(dayMap) {
     const results = Object.entries(dayMap).map(([date, tasks]) => {
         const completedCount = tasks.filter(t => t.completed).length;
@@ -267,7 +267,6 @@ function transformDayMapToChartData(dayMap) {
         };
     });
 
-    // optionally sort results by date
     results.sort((a, b) => (a.date > b.date ? 1 : -1));
     return results;
 }
