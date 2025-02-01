@@ -1,5 +1,6 @@
 package com.tracker.demo.service;
 
+import com.tracker.demo.constants.Constants;
 import com.tracker.demo.util.CookieManager;
 import org.openqa.selenium.*;
 import org.openqa.selenium.chrome.ChromeDriver;
@@ -7,6 +8,7 @@ import org.openqa.selenium.chrome.ChromeOptions;
 import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.WebDriverWait;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.io.File;
@@ -28,6 +30,11 @@ public class KeybrScraperService {
 
     @Value("${chrome.driver:}")
     private String chromeDriver;
+
+    @Scheduled(cron = "0 30 23 * * ?")
+    public void keybrScheduledTracker() {
+        getPracticeTimeWithSession();
+    }
 
     public String getPracticeTimeWithSession() {
         WebDriver driver = null;
