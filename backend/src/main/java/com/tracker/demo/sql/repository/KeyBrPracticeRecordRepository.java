@@ -9,6 +9,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 
 // KeyBrPracticeRecordRepository.java
@@ -32,5 +33,9 @@ public interface KeyBrPracticeRecordRepository extends JpaRepository<KeyBrPracti
                               @Param("totalMinutes") double totalMinutes);
 
     KeyBrPracticeRecord findByPracticeDate(LocalDate practiceDate);
+
+    // [NEW] For the range
+    // Spring Data JPA can auto-implement "findAllByPracticeDateBetween"
+    List<KeyBrPracticeRecord> findAllByPracticeDateBetween(LocalDate start, LocalDate end);
 }
 
