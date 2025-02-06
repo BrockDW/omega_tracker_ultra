@@ -46,11 +46,13 @@ public class KeybrScraperServiceV2 {
             driver = webDriverManager.createChromeDriver(true);
             WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(30));
 
-            // 2. Attempt cookie login
-            if (!attemptLoginWithCookies(driver, wait)) {
-                // 3. If cookie login fails, do Google login
-                doFullLoginFlow(driver, wait);
-            }
+//            // 2. Attempt cookie login
+//            if (!attemptLoginWithCookies(driver, wait)) {
+//                // 3. If cookie login fails, do Google login
+//
+//            }
+
+            doFullLoginFlow(driver, wait);
 
             // 4. Scrape the practice time
             return getPracticeTime(driver, wait);
@@ -110,7 +112,7 @@ public class KeybrScraperServiceV2 {
         WebElementUtils.waitForPageLoad(driver, Duration.ofSeconds(30));
 
         // Click sign-in
-        By signInLocator = By.xpath("//span[contains(@class, 'SKK4yTkTJW') and text()='Sign-In']");
+        By signInLocator = By.xpath("//span[text()='Sign-In']");
         WebElement signInButton =
                 WebElementUtils.waitForElementClickable(driver, signInLocator, Duration.ofSeconds(30));
         WebElementUtils.clickElementWithJS(driver, signInButton);
@@ -148,8 +150,7 @@ public class KeybrScraperServiceV2 {
 
         // Get daily goal text
         By dailyGoalLocator = By.xpath(
-                "//span[contains(text(), 'Daily goal:')]/following-sibling::span" +
-                        "//span[contains(@class, 'ZiMQFjE365')]"
+                "//span[contains(text(), 'Daily goal:')]/following-sibling::span//span[contains(text(), '%/')]"
         );
         WebElement dailyGoalText = wait.until(ExpectedConditions.presenceOfElementLocated(dailyGoalLocator));
         String dailyGoalValue = dailyGoalText.getText();
