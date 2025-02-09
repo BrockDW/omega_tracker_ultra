@@ -20,7 +20,7 @@ public class LoadCellService {
     private boolean isExerciseActive = false;
 
     // Threshold to detect exercise (in kg)
-    private static final float EXERCISE_THRESHOLD = 2f;
+    private static final float EXERCISE_THRESHOLD = 1.5f;
 
     public void processWeightData(double weight) {
         if (weight >= EXERCISE_THRESHOLD && !isExerciseActive) {
