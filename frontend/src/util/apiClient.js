@@ -6,6 +6,7 @@ const BASE_URL = process.env.REACT_APP_API_URL;
 
 // Generalized API functions
 export async function apiGet(path) {
+console.log(`${BASE_URL}${path}`);
   const response = await fetch(`${BASE_URL}${path}`, {
     method: 'GET',
     headers: {

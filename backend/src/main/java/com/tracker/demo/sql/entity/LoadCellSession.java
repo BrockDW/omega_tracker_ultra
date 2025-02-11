@@ -15,14 +15,16 @@ import java.time.LocalDateTime;
 @Getter
 @Entity
 public class LoadCellSession {
-    // Getters and setters
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     private LocalDate date;
-    private LocalDateTime startTime;
-    private LocalDateTime endTime;
-    private long durationSeconds;  // Duration in seconds
+    private long durationSeconds;   // total accumulated duration in seconds for that day
 
+    private long goal;             // daily target in seconds
+    private float percentage;      // (durationSeconds / goal) * 100
+
+    // getters and setters ...
 }

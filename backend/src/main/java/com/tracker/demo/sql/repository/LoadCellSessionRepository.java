@@ -9,5 +9,7 @@ import java.util.List;
 
 @Repository
 public interface LoadCellSessionRepository extends JpaRepository<LoadCellSession, Long> {
-    List<LoadCellSession> findByDate(LocalDate date);
+    LoadCellSession findByDate(LocalDate date);
+
+    List<LoadCellSession> findByDateBetween(LocalDate startDate, LocalDate endDate);
 }

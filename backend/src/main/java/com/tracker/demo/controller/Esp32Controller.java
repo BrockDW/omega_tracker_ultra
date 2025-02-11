@@ -1,13 +1,16 @@
 package com.tracker.demo.controller;
 
+import com.tracker.demo.dto.KeyBrPracticeResult;
+import com.tracker.demo.dto.LoadCellExerciseResult;
 import com.tracker.demo.dto.SensorData;
 import com.tracker.demo.service.LoadCellService;
 import com.tracker.demo.service.WebSocketService;
+import com.tracker.demo.sql.entity.LoadCellSession;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
+
+import java.time.LocalDate;
+import java.util.Map;
 
 @RestController
 public class Esp32Controller {
@@ -33,9 +36,22 @@ public class Esp32Controller {
     }
 
     @GetMapping("/weight/total-time-today")
-    public long getTotalExerciseTimeToday() {
+    public LoadCellExerciseResult getTotalExerciseTimeToday() {
         return loadCellService.getTotalExerciseTimeToday();
     }
 
+    // Single-day endpoint remains the same (optional)
+    @GetMapping("/weight/day/{dateStr}")
+    public LoadCellExerciseResult getPracticeForDay(@PathVariable String dateStr) {
+        return loadCellService.getTotalExerciseTimeForDay(dateStr);
+    }
 
+    @GetMapping("/weight/range")
+    public Map<LocalDate, LoadCellExerciseResult> getTotalExerciseTimeInRange(@RequestParam String start,
+                                                            @RequestParam String end) {
+        LocalDate startDate = LocalDate.parse(start);
+        LocalDate endDate = LocalDate.parse(end);
+
+        return loadCellService.getTotalExerciseTimeInRange(startDate, endDate);
+    }
 }

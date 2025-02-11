@@ -22,8 +22,9 @@ import { createWebSocketClient } from "../util/apiClient";
  * - tasks = 60% of the overall daily completion
  * - practice = 40%
  */
-const TASKS_WEIGHT = 0.6;
-const PRACTICE_WEIGHT = 0.4;
+const TASKS_WEIGHT = 0.5;
+const PRACTICE_WEIGHT = 0.3;
+const WEIGHT_WEIGHT = 0.2;
 
 function TaskChartPage() {
     // ---------------------------
@@ -37,6 +38,7 @@ function TaskChartPage() {
     // ---------------------------
     const [tasksDayMap, setTasksDayMap] = useState({});       // { date: Task[] }
     const [practiceRangeMap, setPracticeRangeMap] = useState({}); // { date: { percentage, ... } }
+    const [weightRangeMap, setWeightRangeMap] = useState({});
 
     // ---------------------------
     // 3) Final chart data to be displayed in Recharts
@@ -49,10 +51,12 @@ function TaskChartPage() {
     const [selectedDate, setSelectedDate] = useState(null);
     const [selectedDayTasks, setSelectedDayTasks] = useState([]);
     const [practiceMetrics, setPracticeMetrics] = useState(null);
+    const [weightMetrics, setWeightMetrics] = useState(null);
 
     // Separate loading states for day-level fetch
     const [isDayTasksLoading, setIsDayTasksLoading] = useState(false);
     const [isDayPracticeLoading, setIsDayPracticeLoading] = useState(false);
+    const [isDayWeightLoading, setIsDayWeightLoading] = useState(false);
 
     // WebSocket sensor data
     const [sensorData, setSensorData] = useState({ rawValue: null, weight: null });
@@ -79,6 +83,7 @@ function TaskChartPage() {
         if (!startDate || !endDate) return;
         fetchTasksRange();
         fetchPracticeRange();
+        fetchWeightRange();
     }, [startDate, endDate]);
 
     // ---------------------------
@@ -86,9 +91,13 @@ function TaskChartPage() {
     //    into chartData whenever either changes
     // ---------------------------
     useEffect(() => {
-        const combined = transformDayMapToChartData(tasksDayMap, practiceRangeMap);
+        const combined = transformDayMapToChartData(
+            tasksDayMap,
+            practiceRangeMap,
+            weightRangeMap
+        );
         setChartData(combined);
-    }, [tasksDayMap, practiceRangeMap]);
+    }, [tasksDayMap, practiceRangeMap, weightRangeMap]);
 
     // ---------------------------
     // 7) Fetch tasks for the entire range
@@ -118,38 +127,56 @@ function TaskChartPage() {
         }
     }
 
+    async function fetchWeightRange() {
+        try {
+            const data = await apiGet(`/weight/range?start=${startDate}&end=${endDate}`);
+            // data is { "2025-01-01": { percentage, goalSeconds, secondsPracticed }, ... }
+            setWeightRangeMap(data);
+        } catch (err) {
+            console.error("Failed to fetch weight range:", err);
+            setWeightRangeMap({});
+        }
+    }
+
     // ---------------------------
     // 9) transformDayMapToChartData: merges tasks & practice
     // ---------------------------
-    function transformDayMapToChartData(tasksMap, practiceMap) {
-        // tasksMap: { date -> Task[] }
-        // practiceMap: { date -> { percentage, ... } }
+    function transformDayMapToChartData(tasksMap, practiceMap, weightMap) {
+        // Gather all dates from each map
+        const allDates = new Set([
+            ...Object.keys(tasksMap),
+            ...Object.keys(practiceMap),
+            ...Object.keys(weightMap),
+        ]);
 
-        const results = Object.entries(tasksMap).map(([date, tasks]) => {
-            // tasks portion
-            const completedCount = tasks.filter(t => t.completed).length;
-            const total = tasks.length;
-            const tasksPercent = total > 0 ? (completedCount / total) * 100 : 0;
+        const results = [...allDates].map((date) => {
+            // --- 1) tasks ---
+            const tasks = tasksMap[date] || [];
+            const completedCount = tasks.filter((t) => t.completed).length;
+            const totalTasks = tasks.length;
+            const tasksPercent = totalTasks > 0 ? (completedCount / totalTasks) * 100 : 0;
 
-            // practice portion
-            let practicePercent = 0;
-            if (practiceMap[date] && practiceMap[date].percentage != null) {
-                practicePercent = practiceMap[date].percentage;
-            }
+            // --- 2) practice ---
+            const practice = practiceMap[date] || {};
+            const practicePercent = practice.percentage || 0;
+
+            // --- 3) weight ---
+            const weight = weightMap[date] || {};
+            const weightPercent = weight.percentage || 0;
 
             // Weighted overall
-            const overall = (tasksPercent * TASKS_WEIGHT) + (practicePercent * PRACTICE_WEIGHT);
+            const overall =
+                tasksPercent * TASKS_WEIGHT +
+                practicePercent * PRACTICE_WEIGHT +
+                weightPercent * WEIGHT_WEIGHT;
 
             return {
                 date,
                 completed: completedCount,
-                notCompleted: total - completedCount,
-                percent: Math.round(overall),
+                notCompleted: totalTasks - completedCount,
+                percent: Math.round(overall),  // for your line chart
             };
         });
-
-        // (Optional) If you want to handle "practice days with no tasks," you'd also map over
-        // practiceMap to fill those in. Typically, you only chart days that had tasks though.
 
         results.sort((a, b) => (a.date > b.date ? 1 : -1));
         return results;
@@ -168,8 +195,8 @@ function TaskChartPage() {
             setPracticeMetrics(null);
 
             setIsDayTasksLoading(true);
+            setIsDayWeightLoading(true);
             setIsDayPracticeLoading(true);
-
             // A) Fetch tasks detail
             try {
                 const dayTasks = await apiGet(`/tasks/day/${date}`);
@@ -182,6 +209,19 @@ function TaskChartPage() {
                 setIsDayTasksLoading(false);
             }
 
+            // weight (NEW)
+
+            try {
+                const weightDay = await apiGet(`/weight/day/${date}`);
+                // weightDay = { percentage, goalSeconds, secondsPracticed }
+                setWeightMetrics(weightDay);
+            } catch (err) {
+                console.error("Failed to fetch weight detail:", err);
+                setWeightMetrics(null);
+            } finally {
+                setIsDayWeightLoading(false);
+            }
+
             // B) Fetch practice detail
             try {
                 const practiceDay = await apiGet(`/keybr/day/${date}`);
@@ -191,6 +231,8 @@ function TaskChartPage() {
             } finally {
                 setIsDayPracticeLoading(false);
             }
+
+
         }
     };
 
@@ -349,6 +391,24 @@ function TaskChartPage() {
                             </div>
                         ) : (
                             <p>No practice metrics for this day.</p>
+                        )}
+
+                        {/* (NEW) Show weight metrics */}
+                        {isDayWeightLoading ? (
+                            <p>Loading weight metrics...</p>
+                        ) : weightMetrics ? (
+                            <div style={{ marginTop: "1rem" }}>
+                                <h4>Weight Metrics</h4>
+                                <p>
+                                    Percentage: <strong>{weightMetrics.percentage.toFixed(2)}%</strong>
+                                    <br />
+                                    Goal Seconds: <strong>{weightMetrics.goalSeconds}</strong>
+                                    <br />
+                                    Seconds Practiced: <strong>{weightMetrics.secondsPracticed}</strong>
+                                </p>
+                            </div>
+                        ) : (
+                            <p>No weight metrics for this day.</p>
                         )}
                     </>
                 ) : (

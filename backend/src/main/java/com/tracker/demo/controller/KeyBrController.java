@@ -59,13 +59,6 @@ public class KeyBrController {
             resultMap.put(date.toString(), toPracticeResult(rec));
         }
 
-//        // 4) If "today" is in the requested range, override with scraped data
-//        LocalDate today = LocalDate.now();
-//        if (!startDate.isAfter(today) && !endDate.isBefore(today)) {
-//            KeyBrPracticeResult scraped = keybrScraperServiceV2.getPracticeTimeWithSession();
-//            resultMap.put(today.toString(), scraped);
-//        }
-
         return resultMap;
     }
 
