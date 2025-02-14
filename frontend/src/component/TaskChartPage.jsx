@@ -129,41 +129,55 @@ function TaskChartPage() {
   // 9) Merge day-level data
   // ---------------------------
   function transformDayMapToChartData(tasksMap, practiceMap, weightMap) {
+    // gather all dates from each map
     const allDates = new Set([
       ...Object.keys(tasksMap),
       ...Object.keys(practiceMap),
       ...Object.keys(weightMap),
     ]);
 
+    // define a helper to clamp percentages
+    const clampTo100 = (value) => Math.min(value, 100);
+
     const results = [...allDates].map((date) => {
-      // tasks
+      // 1) tasks
       const tasks = tasksMap[date] || [];
       const completedCount = tasks.filter((t) => t.completed).length;
       const totalTasks = tasks.length;
       const tasksPercent = totalTasks > 0 ? (completedCount / totalTasks) * 100 : 0;
 
-      // practice
+      // 2) practice
       const practice = practiceMap[date] || {};
       const practicePercent = practice.percentage || 0;
 
-      // weight
+      // 3) weight
       const weight = weightMap[date] || {};
       const weightPercent = weight.percentage || 0;
 
-      // weighted overall
+      // clamp each
+      const tasksClamped = clampTo100(tasksPercent);
+      const practiceClamped = clampTo100(practicePercent);
+      const weightClamped = clampTo100(weightPercent);
+
+      // Weighted overall
       const overall =
-        tasksPercent * TASKS_WEIGHT +
-        practicePercent * PRACTICE_WEIGHT +
-        weightPercent * WEIGHT_WEIGHT;
+        tasksClamped * TASKS_WEIGHT +
+        practiceClamped * PRACTICE_WEIGHT +
+        weightClamped * WEIGHT_WEIGHT;
+
+      // also clamp overall if you want to ensure it never exceeds 100
+      const overallClamped = clampTo100(overall);
 
       return {
         date,
         completed: completedCount,
         notCompleted: totalTasks - completedCount,
-        percent: Math.round(overall),
+        // for the line chart:
+        percent: Math.round(overallClamped),
       };
     });
 
+    // sort chronologically
     results.sort((a, b) => (a.date > b.date ? 1 : -1));
     return results;
   }
