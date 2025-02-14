@@ -23,9 +23,9 @@ public class KeyBrController {
 
     // Single-day endpoint remains the same (optional)
     @GetMapping("/keybr/day/{dateStr}")
-    public KeyBrPracticeResult getPracticeForDay(@PathVariable String dateStr) {
+    public KeyBrPracticeResult getPracticeForDay(@PathVariable String dateStr, @RequestParam(defaultValue = "false") Boolean isForced) {
         LocalDate date = LocalDate.parse(dateStr);
-        return fetchKeyBrPracticeResult(date);
+        return fetchKeyBrPracticeResult(date, isForced);
     }
 
     /**
@@ -79,8 +79,8 @@ public class KeyBrController {
     /**
      * [Optional] This is your existing day-level logic if you still need it:
      */
-    private KeyBrPracticeResult fetchKeyBrPracticeResult(LocalDate date) {
-        if (date.equals(LocalDate.now())) {
+    private KeyBrPracticeResult fetchKeyBrPracticeResult(LocalDate date, Boolean isForced) {
+        if (date.equals(LocalDate.now()) && isForced) {
             return keybrScraperServiceV2.getPracticeTimeWithSession();
         }
         KeyBrPracticeRecord record = keyBrPracticeRecordRepository.findByPracticeDate(date);

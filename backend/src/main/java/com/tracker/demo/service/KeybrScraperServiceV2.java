@@ -13,6 +13,7 @@ import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.WebDriverWait;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
@@ -39,18 +40,17 @@ public class KeybrScraperServiceV2 {
     @Autowired
     private KeyBrPracticeRecordRepository keyBrPracticeRecordRepository;
 
+    @Scheduled(cron = "0 30 23 * * ?")
+    public void keybrScheduledTracker() {
+        getPracticeTimeWithSession();
+    }
+
     public KeyBrPracticeResult getPracticeTimeWithSession() {
         WebDriver driver = null;
         try {
             // 1. Setup driver (headless = true, for example)
             driver = webDriverManager.createChromeDriver(true);
             WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(30));
-
-//            // 2. Attempt cookie login
-//            if (!attemptLoginWithCookies(driver, wait)) {
-//                // 3. If cookie login fails, do Google login
-//
-//            }
 
             doFullLoginFlow(driver, wait);
 
