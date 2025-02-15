@@ -28,35 +28,57 @@ public class LoadCellService {
 
     private static final long DEFAULT_GOAL_SECONDS = 300;
 
+    // --- NEW FIELDS ---
+    private static final int START_REQUIRED_CONSECUTIVE = 5;  // e.g. 5 consecutive above-threshold readings
+    private static final int STOP_REQUIRED_CONSECUTIVE  = 5;  // e.g. 5 consecutive below-threshold readings
+
+    private int consecutiveAboveThresholdCount = 0;
+    private int consecutiveBelowThresholdCount = 0;
+
+    /**
+     * This method processes incoming weight data from the load cell, and uses
+     * consecutive-read logic to determine when to start/stop an "exercise session".
+     */
     public void processWeightData(double weight) {
-        if (weight >= EXERCISE_THRESHOLD && !isExerciseActive) {
-            // Exercise started
+        // 1) Check if current reading is above or below threshold, update counters
+        if (weight >= EXERCISE_THRESHOLD) {
+            consecutiveAboveThresholdCount++;
+            consecutiveBelowThresholdCount = 0;  // reset opposite counter
+        } else {
+            consecutiveBelowThresholdCount++;
+            consecutiveAboveThresholdCount = 0;  // reset opposite counter
+        }
+
+        // 2) If not currently active, check if we exceed the start threshold
+        if (!isExerciseActive && consecutiveAboveThresholdCount >= START_REQUIRED_CONSECUTIVE) {
             exerciseStartTime = LocalDateTime.now();
             isExerciseActive = true;
             System.out.println("Exercise started at: " + exerciseStartTime);
-        } else if (weight < EXERCISE_THRESHOLD && isExerciseActive) {
-            // Exercise ended
+        }
+
+        // 3) If currently active, check if we exceed the stop threshold
+        if (isExerciseActive && consecutiveBelowThresholdCount >= STOP_REQUIRED_CONSECUTIVE) {
             LocalDateTime exerciseEndTime = LocalDateTime.now();
             long newSessionSeconds = ChronoUnit.SECONDS.between(exerciseStartTime, exerciseEndTime);
             isExerciseActive = false;
 
             LocalDate today = LocalDate.now();
 
-            // 1) Find existing record for "today"
+            // (a) Find existing record for "today"
             LoadCellSession session = loadCellSessionRepository.findByDate(today);
 
-            // 2) If none exists, create a new one
+            // (b) If none exists, create a new one
             if (session == null) {
                 session = new LoadCellSession();
                 session.setDate(today);
-                session.setGoal(DEFAULT_GOAL_SECONDS); // or retrieve from user settings, etc.
+                session.setGoal(DEFAULT_GOAL_SECONDS);
             }
 
-            // 3) Add to the total
+            // (c) Add to the total
             long updatedDuration = session.getDurationSeconds() + newSessionSeconds;
             session.setDurationSeconds(updatedDuration);
 
-            // If goal > 0, update the percentage
+            // (d) If goal > 0, update the percentage
             if (session.getGoal() > 0) {
                 float percentage = (float) updatedDuration / session.getGoal() * 100f;
                 session.setPercentage(percentage);
@@ -64,13 +86,14 @@ public class LoadCellService {
                 session.setPercentage(0);
             }
 
-            // 5) Save back to DB
+            // (e) Save back to DB
             loadCellSessionRepository.save(session);
 
             System.out.println("Exercise ended. This session: " + newSessionSeconds
                     + " seconds; total so far today: " + updatedDuration + " seconds");
         }
     }
+
 
 
     public LoadCellExerciseResult getTotalExerciseTimeToday() {
