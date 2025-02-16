@@ -42,6 +42,9 @@ keybr:
       email: ${KEYBR_GOOGLE_EMAIL}
       password: ${KEYBR_GOOGLE_PASSWORD}
 
+leetcode:
+  userId: brockdwg
+
 screenshot:
   path: "./screenshots"
 

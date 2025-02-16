@@ -15,9 +15,10 @@ import {
 import { apiGet } from "../util/apiClient";
 import { createWebSocketClient } from "../util/apiClient";
 
-const TASKS_WEIGHT = 0.5;
+const TASKS_WEIGHT = 0.4;
 const PRACTICE_WEIGHT = 0.3;
-const WEIGHT_WEIGHT = 0.2;
+const WEIGHT_WEIGHT = 0.1;
+const LEETCODE_WEIGHT = 0.3;
 
 function TaskChartPage() {
   // ---------------------------
@@ -32,6 +33,7 @@ function TaskChartPage() {
   const [tasksDayMap, setTasksDayMap] = useState({});
   const [practiceRangeMap, setPracticeRangeMap] = useState({});
   const [weightRangeMap, setWeightRangeMap] = useState({});
+  const [leetcodeRangeMap, setLeetCodeRangeMap] = useState({});
 
   // ---------------------------
   // 3) Final chart data
@@ -45,10 +47,12 @@ function TaskChartPage() {
   const [selectedDayTasks, setSelectedDayTasks] = useState([]);
   const [practiceMetrics, setPracticeMetrics] = useState(null);
   const [weightMetrics, setWeightMetrics] = useState(null);
+  const [leetcodeMetrics, setLeetCodeMetrics] = useState(null);
 
   const [isDayTasksLoading, setIsDayTasksLoading] = useState(false);
   const [isDayPracticeLoading, setIsDayPracticeLoading] = useState(false);
   const [isDayWeightLoading, setIsDayWeightLoading] = useState(false);
+  const [isDayLeetCodeLoading, setIsDayLeetCodeLoading] = useState(false);
 
   // WebSocket sensor data
   const [sensorData, setSensorData] = useState({ rawValue: null, weight: null });
@@ -76,15 +80,16 @@ function TaskChartPage() {
     fetchTasksRange();
     fetchPracticeRange();
     fetchWeightRange();
+    fetchLeetCodeRange();
   }, [startDate, endDate]);
 
   // ---------------------------
   // 6) Merge data into chartData
   // ---------------------------
   useEffect(() => {
-    const combined = transformDayMapToChartData(tasksDayMap, practiceRangeMap, weightRangeMap);
+    const combined = transformDayMapToChartData(tasksDayMap, practiceRangeMap, weightRangeMap, leetcodeRangeMap);
     setChartData(combined);
-  }, [tasksDayMap, practiceRangeMap, weightRangeMap]);
+  }, [tasksDayMap, practiceRangeMap, weightRangeMap, leetcodeRangeMap]);
 
   // ---------------------------
   // 7) Fetch tasks range
@@ -126,14 +131,28 @@ function TaskChartPage() {
   }
 
   // ---------------------------
+  // Fetch LeetCode range
+  // ---------------------------
+  async function fetchLeetCodeRange() {
+    try {
+      const data = await apiGet(`/leetcode/range?start=${startDate}&end=${endDate}`);
+      setLeetCodeRangeMap(data);
+    } catch (err) {
+      console.error("Failed to fetch LeetCode range:", err);
+      setLeetCodeRangeMap({});
+    }
+  }
+
+  // ---------------------------
   // 9) Merge day-level data
   // ---------------------------
-  function transformDayMapToChartData(tasksMap, practiceMap, weightMap) {
+  function transformDayMapToChartData(tasksMap, practiceMap, weightMap, leetcodeMap) {
     // gather all dates from each map
     const allDates = new Set([
       ...Object.keys(tasksMap),
       ...Object.keys(practiceMap),
       ...Object.keys(weightMap),
+      ...Object.keys(leetcodeMap),
     ]);
 
     // define a helper to clamp percentages
@@ -154,16 +173,24 @@ function TaskChartPage() {
       const weight = weightMap[date] || {};
       const weightPercent = weight.percentage || 0;
 
+      // 4) leetcode
+      const leetcode = leetcodeMap[date] || {};
+      const leetcodePercent = leetcode.percentage || 0;
+
+      console.log("leetcode percentage is here: ", leetcode)
+
       // clamp each
       const tasksClamped = clampTo100(tasksPercent);
       const practiceClamped = clampTo100(practicePercent);
       const weightClamped = clampTo100(weightPercent);
+      const leetcodeClamped = clampTo100(leetcodePercent);
 
       // Weighted overall
       const overall =
         tasksClamped * TASKS_WEIGHT +
         practiceClamped * PRACTICE_WEIGHT +
-        weightClamped * WEIGHT_WEIGHT;
+        weightClamped * WEIGHT_WEIGHT +
+        leetcodeClamped * LEETCODE_WEIGHT;
 
       // also clamp overall if you want to ensure it never exceeds 100
       const overallClamped = clampTo100(overall);
@@ -174,6 +201,7 @@ function TaskChartPage() {
         notCompleted: totalTasks - completedCount,
         // for the line chart:
         percent: Math.round(overallClamped),
+        leetcodePercent: Math.round(leetcodeClamped),
       };
     });
 
@@ -194,10 +222,12 @@ function TaskChartPage() {
       setSelectedDayTasks([]);
       setPracticeMetrics(null);
       setWeightMetrics(null);
+      setLeetCodeMetrics(null);
 
       setIsDayTasksLoading(true);
       setIsDayPracticeLoading(true);
       setIsDayWeightLoading(true);
+      setIsDayLeetCodeLoading(true);
 
       // 10A) tasks detail
       try {
@@ -228,6 +258,16 @@ function TaskChartPage() {
         console.error("Failed to fetch practice detail:", err);
       } finally {
         setIsDayPracticeLoading(false);
+      }
+
+      // 10D) leetcode detail
+      try {
+        const leetcodeDay = await apiGet(`/leetcode/day/${date}`);
+        setLeetCodeMetrics(leetcodeDay);
+      } catch (err) {
+        console.error("Failed to fetch LeetCode detail:", err);
+      } finally {
+        setIsDayLeetCodeLoading(false);
       }
     }
   };
@@ -267,9 +307,11 @@ function TaskChartPage() {
     setSelectedDayTasks([]);
     setPracticeMetrics(null);
     setWeightMetrics(null);
+    setLeetCodeMetrics(null);
     setIsDayTasksLoading(false);
     setIsDayPracticeLoading(false);
     setIsDayWeightLoading(false);
+    setIsDayLeetCodeLoading(false);
   };
 
   // ---------------------------
@@ -429,6 +471,24 @@ function TaskChartPage() {
               </div>
             ) : (
               <p>No weight metrics for this day.</p>
+            )}
+
+            {/* LeetCode Metrics */}
+            {isDayLeetCodeLoading ? (
+              <p>Loading LeetCode metrics...</p>
+            ) : leetcodeMetrics ? (
+              <div style={{ marginTop: "1rem" }}>
+                <h4>LeetCode Metrics</h4>
+                <p>
+                  Percentage: <strong>{leetcodeMetrics.percentage}%</strong>
+                  <br />
+                  Goal Questions: <strong>{leetcodeMetrics.goalQuestion}</strong>
+                  <br />
+                  Questions Finished: <strong>{leetcodeMetrics.questionFinished}</strong>
+                </p>
+              </div>
+            ) : (
+              <p>No LeetCode metrics for this day.</p>
             )}
           </>
         ) : (
