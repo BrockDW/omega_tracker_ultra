@@ -14,9 +14,11 @@ import {
 } from "recharts";
 import { apiGet } from "../util/apiClient";
 import { createWebSocketClient } from "../util/apiClient";
+import TaskDisplaySection from "./TaskDisplaySection";
+import MetricsSection from "./MetricsSection"; // Import the new component
 
 const TASKS_WEIGHT = 0.4;
-const PRACTICE_WEIGHT = 0.3;
+const PRACTICE_WEIGHT = 0.2;
 const WEIGHT_WEIGHT = 0.1;
 const LEETCODE_WEIGHT = 0.3;
 
@@ -413,86 +415,26 @@ function TaskChartPage() {
       <div style={{ marginTop: "1rem", border: "1px solid #ccc", padding: "1rem" }}>
         {selectedDate ? (
           <>
-            <h3>Tasks for {selectedDate}</h3>
+            {/* Use the TaskDisplaySection component */}
+            <TaskDisplaySection
+              selectedDayTasks={selectedDayTasks}
+              isDayTasksLoading={isDayTasksLoading}
+              selectedDate={selectedDate}
+            />
 
-            {isDayTasksLoading ? (
-              <p>Loading tasks...</p>
-            ) : (
-              <>
-                {Array.isArray(selectedDayTasks) && selectedDayTasks.length > 0 ? (
-                  <ul>
-                    {selectedDayTasks.map((t, i) => (
-                      <li key={i} style={{ marginBottom: "0.5rem" }}>
-                        {t.completed ? "[x]" : "[ ]"} {t.description}
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p>No tasks found.</p>
-                )}
-              </>
-            )}
-
-            {/* Practice Metrics */}
-            {isDayPracticeLoading ? (
-              <p>Loading practice metrics...</p>
-            ) : practiceMetrics ? (
-              <div style={{ marginTop: "1rem" }}>
-                <h4>Practice Metrics</h4>
-                <p>
-                  Percentage: <strong>{practiceMetrics.percentage}%</strong>
-                  <br />
-                  Total Minutes: <strong>{practiceMetrics.totalMinutes}</strong>
-                  <br />
-                  Minutes Practiced: <strong>{practiceMetrics.minutesPracticed}</strong>
-                </p>
-                {/* (NEW) Force Keybr call button */}
-                <button onClick={handleForcePractice}>
-                  Force Keybr (isForced=true)
-                </button>
-              </div>
-            ) : (
-              <p>No practice metrics for this day.</p>
-            )}
-
-            {/* Weight Metrics */}
-            {isDayWeightLoading ? (
-              <p>Loading weight metrics...</p>
-            ) : weightMetrics ? (
-              <div style={{ marginTop: "1rem" }}>
-                <h4>Weight Metrics</h4>
-                <p>
-                  Percentage: <strong>{weightMetrics.percentage.toFixed(2)}%</strong>
-                  <br />
-                  Goal Seconds: <strong>{weightMetrics.goalSeconds}</strong>
-                  <br />
-                  Seconds Practiced: <strong>{weightMetrics.secondsPracticed}</strong>
-                </p>
-              </div>
-            ) : (
-              <p>No weight metrics for this day.</p>
-            )}
-
-            {/* LeetCode Metrics */}
-            {isDayLeetCodeLoading ? (
-              <p>Loading LeetCode metrics...</p>
-            ) : leetcodeMetrics ? (
-              <div style={{ marginTop: "1rem" }}>
-                <h4>LeetCode Metrics</h4>
-                <p>
-                  Percentage: <strong>{leetcodeMetrics.percentage}%</strong>
-                  <br />
-                  Goal Questions: <strong>{leetcodeMetrics.goalQuestion}</strong>
-                  <br />
-                  Questions Finished: <strong>{leetcodeMetrics.questionFinished}</strong>
-                </p>
-              </div>
-            ) : (
-              <p>No LeetCode metrics for this day.</p>
-            )}
+            {/* Metrics Section */}
+            <MetricsSection
+              practiceMetrics={practiceMetrics}
+              weightMetrics={weightMetrics}
+              leetcodeMetrics={leetcodeMetrics}
+              isDayPracticeLoading={isDayPracticeLoading}
+              isDayWeightLoading={isDayWeightLoading}
+              isDayLeetCodeLoading={isDayLeetCodeLoading}
+              handleForcePractice={handleForcePractice}
+            />
           </>
         ) : (
-          <p>Click on a bar or line data point to see that day’s tasks and practice metrics.</p>
+          <p>Click on a bar or line data point to see that day’s tasks and metrics.</p>
         )}
       </div>
 

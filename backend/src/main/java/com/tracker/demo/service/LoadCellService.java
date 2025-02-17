@@ -9,10 +9,10 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 @Service
 public class LoadCellService {
@@ -23,8 +23,8 @@ public class LoadCellService {
     private LocalDateTime exerciseStartTime;
     private boolean isExerciseActive = false;
 
-    // Threshold to detect exercise (in kg)
-    private static final float EXERCISE_THRESHOLD = 1.5f;
+    // Threshold to detect exercise (in kg), relative to the baseline
+    private static final float EXERCISE_THRESHOLD_RELATIVE = 1.5f;
 
     private static final long DEFAULT_GOAL_SECONDS = 300;
 
@@ -35,13 +35,30 @@ public class LoadCellService {
     private int consecutiveAboveThresholdCount = 0;
     private int consecutiveBelowThresholdCount = 0;
 
+    // Dynamic baseline tracking
+    private double baselineWeight = 0;  // Initial baseline
+    private static final int BASELINE_SAMPLES = 100;  // Number of samples to calculate baseline
+    private List<Double> baselineReadings = new ArrayList<>();
+
     /**
      * This method processes incoming weight data from the load cell, and uses
      * consecutive-read logic to determine when to start/stop an "exercise session".
      */
     public void processWeightData(double weight) {
+        // Update baseline if not enough samples have been collected
+        if (baselineReadings.size() < BASELINE_SAMPLES) {
+            baselineReadings.add(weight);
+            if (baselineReadings.size() == BASELINE_SAMPLES) {
+                baselineWeight = calculateBaseline();
+            }
+            return;  // Skip exercise detection until baseline is established
+        }
+
+        // Calculate the adjusted threshold relative to the baseline
+        double adjustedThreshold = baselineWeight + EXERCISE_THRESHOLD_RELATIVE;
+
         // 1) Check if current reading is above or below threshold, update counters
-        if (weight >= EXERCISE_THRESHOLD) {
+        if (weight >= adjustedThreshold) {
             consecutiveAboveThresholdCount++;
             consecutiveBelowThresholdCount = 0;  // reset opposite counter
         } else {
@@ -94,7 +111,21 @@ public class LoadCellService {
         }
     }
 
+    /**
+     * Calculates the baseline weight as the average of the collected baseline readings.
+     */
+    private double calculateBaseline() {
+        double sum = baselineReadings.stream().mapToDouble(Double::doubleValue).sum();
+        return sum / baselineReadings.size();
+    }
 
+    /**
+     * Resets the baseline calculation (e.g., when the load cell is recalibrated or moved).
+     */
+    public void resetBaseline() {
+        baselineReadings.clear();
+        baselineWeight = 0;
+    }
 
     public LoadCellExerciseResult getTotalExerciseTimeToday() {
         LocalDate today = LocalDate.now();
