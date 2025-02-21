@@ -20,7 +20,7 @@ public class LoadCellService {
     private boolean isExerciseActive = false;
 
     // Threshold to detect exercise (in kg) on top of the baseline
-    private static final float EXERCISE_THRESHOLD_RELATIVE = 1.5f;
+    private static final float EXERCISE_THRESHOLD_RELATIVE = 0.5f;
 
     // Default exercise goal in seconds (e.g., 5 minutes)
     private static final long DEFAULT_GOAL_SECONDS = 300;
