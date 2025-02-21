@@ -9,101 +9,109 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 @Service
 public class LoadCellService {
-
     @Autowired
     private LoadCellSessionRepository loadCellSessionRepository;
 
     private LocalDateTime exerciseStartTime;
     private boolean isExerciseActive = false;
 
-    // Threshold to detect exercise (in kg), relative to the baseline
+    // Threshold to detect exercise (in kg) on top of the baseline
     private static final float EXERCISE_THRESHOLD_RELATIVE = 1.5f;
 
+    // Default exercise goal in seconds (e.g., 5 minutes)
     private static final long DEFAULT_GOAL_SECONDS = 300;
 
-    // --- NEW FIELDS ---
-    private static final int START_REQUIRED_CONSECUTIVE = 5;  // e.g. 5 consecutive above-threshold readings
-    private static final int STOP_REQUIRED_CONSECUTIVE  = 5;  // e.g. 5 consecutive below-threshold readings
+    // Number of consecutive readings needed to confirm start/stop
+    private static final int START_REQUIRED_CONSECUTIVE = 5;
+    private static final int STOP_REQUIRED_CONSECUTIVE  = 5;
 
     private int consecutiveAboveThresholdCount = 0;
     private int consecutiveBelowThresholdCount = 0;
 
-    // Dynamic baseline tracking
-    private double baselineWeight = 0;  // Initial baseline
-    private static final int BASELINE_SAMPLES = 100;  // Number of samples to calculate baseline
-    private List<Double> baselineReadings = new ArrayList<>();
+    // --- Rolling baseline fields ---
+    // We'll keep a rolling buffer of some number of the most recent "low" readings.
+    // 100 is arbitrary; adjust as needed.
+    private static final int BASELINE_WINDOW_SIZE = 100;
+    private Deque<Double> baselineReadings = new ArrayDeque<>();
+    private double baselineWeight = 0.0;
 
     /**
-     * This method processes incoming weight data from the load cell, and uses
-     * consecutive-read logic to determine when to start/stop an "exercise session".
+     * Process each new weight reading.
+     * - Recalibrate baseline when not in the middle of an exercise.
+     * - Detect start/stop of exercise based on consecutive readings above/below threshold.
      */
     public void processWeightData(double weight) {
-        // Update baseline if not enough samples have been collected
-        if (baselineReadings.size() < BASELINE_SAMPLES) {
-            baselineReadings.add(weight);
-            if (baselineReadings.size() == BASELINE_SAMPLES) {
-                baselineWeight = calculateBaseline();
+
+        // 1) Recalibrate the baseline if NOT currently exercising.
+        //    (Idea: if you assume the scale is "empty" only when no one is on it,
+        //     ignoring readings that are obviously above threshold can help prevent
+        //     including "load" in your baseline.)
+        if (!isExerciseActive) {
+            // Add the reading into a rolling window
+            baselineReadings.addLast(weight);
+            if (baselineReadings.size() > BASELINE_WINDOW_SIZE) {
+                baselineReadings.removeFirst();
             }
-            return;  // Skip exercise detection until baseline is established
+
+            // Recompute the baseline as the average of all readings in the window
+            // (You could alternatively filter out any large readings that are definitely not "empty")
+            baselineWeight = baselineReadings.stream()
+                    .mapToDouble(Double::doubleValue)
+                    .average()
+                    .orElse(0.0);
         }
 
-        // Calculate the adjusted threshold relative to the baseline
+        // 2) Determine if we're above or below the threshold
         double adjustedThreshold = baselineWeight + EXERCISE_THRESHOLD_RELATIVE;
-
-        // 1) Check if current reading is above or below threshold, update counters
         if (weight >= adjustedThreshold) {
             consecutiveAboveThresholdCount++;
-            consecutiveBelowThresholdCount = 0;  // reset opposite counter
+            consecutiveBelowThresholdCount = 0;
         } else {
             consecutiveBelowThresholdCount++;
-            consecutiveAboveThresholdCount = 0;  // reset opposite counter
+            consecutiveAboveThresholdCount = 0;
         }
 
-        // 2) If not currently active, check if we exceed the start threshold
+        // 3) Check if exercise should start
         if (!isExerciseActive && consecutiveAboveThresholdCount >= START_REQUIRED_CONSECUTIVE) {
             exerciseStartTime = LocalDateTime.now();
             isExerciseActive = true;
             System.out.println("Exercise started at: " + exerciseStartTime);
         }
 
-        // 3) If currently active, check if we exceed the stop threshold
+        // 4) Check if exercise should stop
         if (isExerciseActive && consecutiveBelowThresholdCount >= STOP_REQUIRED_CONSECUTIVE) {
             LocalDateTime exerciseEndTime = LocalDateTime.now();
-            long newSessionSeconds = ChronoUnit.SECONDS.between(exerciseStartTime, exerciseEndTime);
+            long newSessionSeconds =
+                    ChronoUnit.SECONDS.between(exerciseStartTime, exerciseEndTime);
+
             isExerciseActive = false;
 
+            // Fetch or create today's session record
             LocalDate today = LocalDate.now();
-
-            // (a) Find existing record for "today"
             LoadCellSession session = loadCellSessionRepository.findByDate(today);
-
-            // (b) If none exists, create a new one
             if (session == null) {
                 session = new LoadCellSession();
                 session.setDate(today);
                 session.setGoal(DEFAULT_GOAL_SECONDS);
             }
 
-            // (c) Add to the total
+            // Update total exercise duration for the day
             long updatedDuration = session.getDurationSeconds() + newSessionSeconds;
             session.setDurationSeconds(updatedDuration);
 
-            // (d) If goal > 0, update the percentage
+            // Update the percentage if there's a nonzero goal
             if (session.getGoal() > 0) {
                 float percentage = (float) updatedDuration / session.getGoal() * 100f;
                 session.setPercentage(percentage);
             } else {
-                session.setPercentage(0);
+                session.setPercentage(0f);
             }
 
-            // (e) Save back to DB
+            // Persist
             loadCellSessionRepository.save(session);
 
             System.out.println("Exercise ended. This session: " + newSessionSeconds

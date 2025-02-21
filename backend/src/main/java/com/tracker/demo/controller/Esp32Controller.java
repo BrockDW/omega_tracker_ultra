@@ -24,11 +24,7 @@ public class Esp32Controller {
     // Endpoint to receive data from ESP32
     @PostMapping("/weight/data")
     public String receiveData(@RequestBody SensorData sensorData) {
-        // Log the received data
-        System.out.println("Received data: " + sensorData);
-
         loadCellService.processWeightData(sensorData.getWeight());
-
         // Forward the data to WebSocket clients
         webSocketService.sendDataToClients(sensorData);
 

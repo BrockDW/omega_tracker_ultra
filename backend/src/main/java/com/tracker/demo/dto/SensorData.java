@@ -1,25 +1,13 @@
 package com.tracker.demo.dto;
 
+import lombok.Getter;
+import lombok.Setter;
+
+@Getter
+@Setter
 public class SensorData {
     private long rawValue;
-    private double weight;  // Optional: Add more fields as needed
-
-    // Getters and setters
-    public long getRawValue() {
-        return rawValue;
-    }
-
-    public void setRawValue(long rawValue) {
-        this.rawValue = rawValue;
-    }
-
-    public double getWeight() {
-        return weight;
-    }
-
-    public void setWeight(double weight) {
-        this.weight = weight;
-    }
+    private double weight; // Optional: Add more fields as needed
 
     @Override
     public String toString() {
