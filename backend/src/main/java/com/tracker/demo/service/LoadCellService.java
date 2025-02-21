@@ -26,8 +26,8 @@ public class LoadCellService {
     private static final long DEFAULT_GOAL_SECONDS = 300;
 
     // Number of consecutive readings needed to confirm start/stop
-    private static final int START_REQUIRED_CONSECUTIVE = 5;
-    private static final int STOP_REQUIRED_CONSECUTIVE  = 5;
+    private static final int START_REQUIRED_CONSECUTIVE = 1;
+    private static final int STOP_REQUIRED_CONSECUTIVE  = 1;
 
     private int consecutiveAboveThresholdCount = 0;
     private int consecutiveBelowThresholdCount = 0;
@@ -117,6 +117,7 @@ public class LoadCellService {
             System.out.println("Exercise ended. This session: " + newSessionSeconds
                     + " seconds; total so far today: " + updatedDuration + " seconds");
         }
+        System.out.println("baselineWeight: " + baselineWeight);
     }
 
     /**
