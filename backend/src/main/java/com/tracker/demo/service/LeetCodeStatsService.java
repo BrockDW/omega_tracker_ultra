@@ -6,6 +6,7 @@ import com.tracker.demo.sql.entity.LeetCodeStats;
 import com.tracker.demo.sql.repository.LeetCodeStatsRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
@@ -27,49 +28,58 @@ public class LeetCodeStatsService {
 
     private final RestTemplate restTemplate = new RestTemplate();
 
+    @Scheduled(cron = "0 30 23 * * ?")
+    public void leetCodeScheduledTracker() {
+        getLeetCodeResult();
+    }
+
     public LeetCodeResult getLeetCodePracticeData(LocalDate date) {
         if (date.equals(LocalDate.now())) {
             // Call the external API
-            String url = "https://leetcode-stats-api.herokuapp.com/" + username;
-            LeetCodeApiResponse response = restTemplate.getForObject(url, LeetCodeApiResponse.class);
-
-            if (response != null && "success".equals(response.getStatus())) {
-                LeetCodeStats stats = repository.findByDate(date);
-
-                int todayTotalSolved = response.getTotalSolved();
-
-                if (stats == null) {
-                    // Create new entry for today
-                    stats = new LeetCodeStats();
-                    stats.setDate(date);
-                    stats.setGoal(goal);
-                }
-                Optional<LeetCodeStats> latestRecord = repository.findTopByDateBeforeOrderByDateDesc(date);
-
-                if (latestRecord.isPresent()) {
-                    int todayResolved = todayTotalSolved - latestRecord.get().getTotalSolved();
-                    stats.setTotalSolved(todayTotalSolved);
-                    stats.setResolved(todayResolved);
-                    repository.save(stats);
-                    return new LeetCodeResult(((double) todayResolved / goal) * 100f, goal, todayResolved);
-                } else {
-                    stats.setTotalSolved(todayTotalSolved);
-                    stats.setResolved(todayTotalSolved);
-                    repository.save(stats);
-                    // No previous record found, return today's totalSolved
-                    return new LeetCodeResult(100f, goal, todayTotalSolved);
-                }
-            } else {
-                LeetCodeStats stats = repository.findByDate(date);
-
-                if (stats == null) {
-                    return new LeetCodeResult(0, goal, 0);
-                } else {
-                    return new LeetCodeResult(((double) stats.getResolved() / goal) * 100f, goal, stats.getTotalSolved());
-                }
-            }
+            return getLeetCodeResult();
         } else {
             LeetCodeStats stats = repository.findByDate(date);
+
+            if (stats == null) {
+                return new LeetCodeResult(0, goal, 0);
+            } else {
+                return new LeetCodeResult(((double) stats.getResolved() / goal) * 100f, goal, stats.getTotalSolved());
+            }
+        }
+    }
+
+    private LeetCodeResult getLeetCodeResult() {
+        String url = "https://leetcode-stats-api.herokuapp.com/" + username;
+        LeetCodeApiResponse response = restTemplate.getForObject(url, LeetCodeApiResponse.class);
+
+        if (response != null && "success".equals(response.getStatus())) {
+            LeetCodeStats stats = repository.findByDate(LocalDate.now());
+
+            int todayTotalSolved = response.getTotalSolved();
+
+            if (stats == null) {
+                // Create new entry for today
+                stats = new LeetCodeStats();
+                stats.setDate(LocalDate.now());
+                stats.setGoal(goal);
+            }
+            Optional<LeetCodeStats> latestRecord = repository.findTopByDateBeforeOrderByDateDesc(LocalDate.now());
+
+            if (latestRecord.isPresent()) {
+                int todayResolved = todayTotalSolved - latestRecord.get().getTotalSolved();
+                stats.setTotalSolved(todayTotalSolved);
+                stats.setResolved(todayResolved);
+                repository.save(stats);
+                return new LeetCodeResult(((double) todayResolved / goal) * 100f, goal, todayResolved);
+            } else {
+                stats.setTotalSolved(todayTotalSolved);
+                stats.setResolved(todayTotalSolved);
+                repository.save(stats);
+                // No previous record found, return today's totalSolved
+                return new LeetCodeResult(100f, goal, todayTotalSolved);
+            }
+        } else {
+            LeetCodeStats stats = repository.findByDate(LocalDate.now());
 
             if (stats == null) {
                 return new LeetCodeResult(0, goal, 0);
