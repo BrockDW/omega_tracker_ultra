@@ -3,6 +3,7 @@ package com.tracker.demo.controller;
 import com.tracker.demo.dto.KeyBrPracticeResult;
 import com.tracker.demo.dto.LoadCellExerciseResult;
 import com.tracker.demo.dto.SensorData;
+import com.tracker.demo.service.InMemoryExerciseTrackerService;
 import com.tracker.demo.service.LoadCellService;
 import com.tracker.demo.service.WebSocketService;
 import com.tracker.demo.sql.entity.LoadCellSession;
@@ -21,6 +22,9 @@ public class Esp32Controller {
     @Autowired
     private LoadCellService loadCellService;
 
+    @Autowired
+    private InMemoryExerciseTrackerService inMemoryExerciseTrackerService;
+
     // Endpoint to receive data from ESP32
     @PostMapping("/weight/data")
     public String receiveData(@RequestBody SensorData sensorData) {
@@ -29,6 +33,12 @@ public class Esp32Controller {
         webSocketService.sendDataToClients(sensorData);
 
         return "Data received and forwarded to WebSocket clients!";
+    }
+
+    // Endpoint to receive data from ESP32
+    @PostMapping("/weight/did_wake_up")
+    public Boolean checkIfWakedUp(@RequestBody SensorData sensorData) {
+        return inMemoryExerciseTrackerService.didWakeUpToday;
     }
 
     @GetMapping("/weight/total-time-today")
