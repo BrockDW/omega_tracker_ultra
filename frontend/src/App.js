@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
+import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import TaskChartPage from './component/TaskChartPage';
+import IncompleteTasksPage from './component/IncompleteTasksPage';
 
 function App() {
   const [message, setMessage] = useState('');
@@ -23,9 +25,19 @@ function App() {
   }, []);
 
   return (
-    <div style={{ padding: '2rem', fontFamily: 'Arial, sans-serif' }}>
-      <TaskChartPage />
-    </div>
+    <Router>
+      <div style={{ padding: '2rem', fontFamily: 'Arial, sans-serif' }}>
+        <nav style={{ marginBottom: '1rem' }}>
+          <Link to="/" style={{ marginRight: '1rem' }}>Home</Link>
+          <Link to="/incomplete-tasks">Incomplete Tasks</Link>
+        </nav>
+
+        <Routes>
+          <Route path="/" element={<TaskChartPage />} />
+          <Route path="/incomplete-tasks" element={<IncompleteTasksPage />} />
+        </Routes>
+      </div>
+    </Router>
   );
 }
 

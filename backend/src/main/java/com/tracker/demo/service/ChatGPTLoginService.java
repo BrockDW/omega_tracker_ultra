@@ -1,6 +1,5 @@
 package com.tracker.demo.service;
 
-import com.tracker.demo.util.CloudflareAuthHandler;
 import com.tracker.demo.util.CloudflareTurnstileHandler;
 import org.openqa.selenium.*;
 import org.openqa.selenium.chrome.ChromeDriver;

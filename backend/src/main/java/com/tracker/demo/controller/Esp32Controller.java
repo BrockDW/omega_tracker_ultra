@@ -1,12 +1,10 @@
 package com.tracker.demo.controller;
 
-import com.tracker.demo.dto.KeyBrPracticeResult;
 import com.tracker.demo.dto.LoadCellExerciseResult;
 import com.tracker.demo.dto.SensorData;
 import com.tracker.demo.service.InMemoryExerciseTrackerService;
 import com.tracker.demo.service.LoadCellService;
 import com.tracker.demo.service.WebSocketService;
-import com.tracker.demo.sql.entity.LoadCellSession;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
@@ -37,7 +35,7 @@ public class Esp32Controller {
 
     // Endpoint to receive data from ESP32
     @PostMapping("/weight/did_wake_up")
-    public Boolean checkIfWakedUp(@RequestBody SensorData sensorData) {
+    public Boolean checkIfWakedUp() {
         return inMemoryExerciseTrackerService.didWakeUpToday;
     }
 

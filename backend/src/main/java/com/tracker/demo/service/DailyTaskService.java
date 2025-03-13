@@ -10,6 +10,7 @@ import java.time.temporal.WeekFields;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 @Service
 public class DailyTaskService {
@@ -65,14 +66,6 @@ public class DailyTaskService {
         return notesMap;
     }
 
-//    public List<Task> getTasksLocalDate(LocalDate localDate) {
-//        String mdContent = gitHubReadService.fetchMarkdownLocalDate(localDate);
-//        if (mdContent == null || mdContent.isEmpty()) {
-//            return Collections.emptyList();
-//        }
-//        return parseMarkdown(mdContent);
-//    }
-
     private List<Task> parseMarkdown(String markdown) {
         List<Task> tasks = new ArrayList<>();
         String[] lines = markdown.split("\r?\n"); // split on newlines
@@ -87,5 +80,83 @@ public class DailyTaskService {
             }
         }
         return tasks;
+    }
+
+    public Map<String, List<Task>> fetchAggregatedIncompleteTasks(LocalDate startDate, LocalDate endDate) {
+        List<Task> dailyTasks = new ArrayList<>();
+        List<Task> weeklyTasks = new ArrayList<>();
+        List<Task> monthlyTasks = new ArrayList<>();
+
+        Set<String> fetchedWeeks = new HashSet<>();
+        Set<String> fetchedMonths = new HashSet<>();
+
+        LocalDate current = startDate;
+
+        while (!current.isAfter(endDate)) {
+            // Daily tasks
+            dailyTasks.addAll(
+                    fetchMarkdownLocalDate(current).stream()
+                            .filter(task -> !task.isCompleted())
+                            .collect(Collectors.toList())
+            );
+
+            // Weekly tasks (fetch once per week)
+            WeekFields weekFields = WeekFields.of(DayOfWeek.SUNDAY, 1);
+            int weekNumber = current.get(weekFields.weekOfWeekBasedYear());
+            String weekKey = current.getYear() + "-W" + weekNumber;
+
+            if (!fetchedWeeks.contains(weekKey)) {
+                weeklyTasks.addAll(
+                        fetchWeeklyMarkdown(current).stream()
+                                .filter(task -> !task.isCompleted())
+                                .collect(Collectors.toList())
+                );
+                fetchedWeeks.add(weekKey);
+            }
+
+            // Monthly tasks (fetch once per month)
+            String monthKey = current.format(DateTimeFormatter.ofPattern("yyyy-MM"));
+
+            if (!fetchedMonths.contains(monthKey)) {
+                monthlyTasks.addAll(
+                        fetchMonthlyMarkdown(current).stream()
+                                .filter(task -> !task.isCompleted())
+                                .collect(Collectors.toList())
+                );
+                fetchedMonths.add(monthKey);
+            }
+
+            // move to next day
+            current = current.plusDays(1);
+        }
+
+        Map<String, List<Task>> result = new HashMap<>();
+        result.put("dailyTasks", dailyTasks);
+        result.put("weeklyTasks", weeklyTasks);
+        result.put("monthlyTasks", monthlyTasks);
+
+        return result;
+    }
+
+    private List<Task> fetchWeeklyMarkdown(LocalDate date) {
+        String yearMonth = date.format(DateTimeFormatter.ofPattern("yyyy-MM"));
+        WeekFields customWeekFields = WeekFields.of(DayOfWeek.SUNDAY, 1);
+        int weekNumber = date.get(customWeekFields.weekOfWeekBasedYear());
+        String weeklyFileName = "Weekly.md";
+
+        String path = String.format("%s/W%02d/%s", yearMonth, weekNumber, weeklyFileName);
+        String content = gitHubReadService.getContentAPI(path);
+
+        return parseMarkdown(content != null ? content : "");
+    }
+
+    private List<Task> fetchMonthlyMarkdown(LocalDate date) {
+        String yearMonth = date.format(DateTimeFormatter.ofPattern("yyyy-MM"));
+        String monthlyFileName = "Monthly.md";
+
+        String path = String.format("%s/%s", yearMonth, monthlyFileName);
+        String content = gitHubReadService.getContentAPI(path);
+
+        return parseMarkdown(content != null ? content : "");
     }
 }

@@ -76,4 +76,14 @@ public class TasksController {
         LocalDate endDate = LocalDate.parse(end);
         return dailyTaskService.fetchMarkdownInRange(startDate, endDate);
     }
+
+    @GetMapping("/incomplete-aggregated")
+    public Map<String, List<Task>> getIncompleteAggregatedTasks(
+            @RequestParam String start,
+            @RequestParam String end
+    ) {
+        LocalDate startDate = LocalDate.parse(start);
+        LocalDate endDate = LocalDate.parse(end);
+        return dailyTaskService.fetchAggregatedIncompleteTasks(startDate, endDate);
+    }
 }

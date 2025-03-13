@@ -1,7 +1,6 @@
 package com.tracker.demo.controller;
 
 import com.tracker.demo.dto.LeetCodeResult;
-import com.tracker.demo.dto.LoadCellExerciseResult;
 import com.tracker.demo.service.LeetCodeStatsService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;

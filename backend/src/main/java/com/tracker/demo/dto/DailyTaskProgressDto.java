@@ -1,6 +1,5 @@
 package com.tracker.demo.dto;
 
-import com.tracker.demo.sql.entity.KeyBrPracticeRecord;
 import lombok.Getter;
 import lombok.Setter;
 
