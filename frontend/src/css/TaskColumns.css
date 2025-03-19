@@ -1,15 +1,24 @@
 /* TaskColumns.css */
+
 .task-columns-container {
   display: flex;
-  gap: 2rem; /* space between the two columns */
-  margin-bottom: 1rem;
+  gap: 2rem;
 }
 
 .task-column {
-  flex: 1;            /* each column takes up half the container */
-  min-width: 200px;   /* ensures they don't shrink too small if screen is narrow */
+  flex: 1;
+  min-width: 200px;
 }
 
-.task-column h5 {
-  margin-top: 0;      /* optional: tighter headings */
+/* Highlight classes: red or green border */
+.highlight-red {
+  border: 2px solid red;
+  padding: 4px;
+  border-radius: 4px;
+}
+
+.highlight-green {
+  border: 2px solid green;
+  padding: 4px;
+  border-radius: 4px;
 }

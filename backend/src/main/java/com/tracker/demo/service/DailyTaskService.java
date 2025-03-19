@@ -1,6 +1,7 @@
 package com.tracker.demo.service;
 
 import com.tracker.demo.dto.Task;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
@@ -18,11 +19,11 @@ import java.util.stream.Collectors;
 @Service
 public class DailyTaskService {
 
-    private final GitHubReadService gitHubReadService;
+    private final GitHubService gitHubService;
     private static final Pattern CHECKBOX_PATTERN = Pattern.compile("^- \\[([ xX])\\] (.*)$");
 
-    public DailyTaskService(GitHubReadService gitHubReadService) {
-        this.gitHubReadService = gitHubReadService;
+    public DailyTaskService(GitHubService gitHubService) {
+        this.gitHubService = gitHubService;
     }
 
     // ------------------------------------------------------------------------
@@ -41,7 +42,7 @@ public class DailyTaskService {
         String dailyFileName = localDate.toString() + ".md";
 
         // Fetch the file for localDate's path
-        String mdContent = gitHubReadService.getContentAPI(
+        String mdContent = gitHubService.getContentAPI(
                 String.format("%s/%s/%s", yearMonthFolder, weekFolder, dailyFileName)
         );
 
@@ -99,7 +100,7 @@ public class DailyTaskService {
         String weeklyFileName = "Weekly.md";
 
         String path = String.format("%s/W%02d/%s", yearMonth, weekNumber, weeklyFileName);
-        String content = gitHubReadService.getContentAPI(path);
+        String content = gitHubService.getContentAPI(path);
 
         return parseMarkdown(content != null ? content : "");
     }
@@ -112,18 +113,12 @@ public class DailyTaskService {
         String monthlyFileName = "Monthly.md";
 
         String path = String.format("%s/%s", yearMonth, monthlyFileName);
-        String content = gitHubReadService.getContentAPI(path);
+        String content = gitHubService.getContentAPI(path);
 
         return parseMarkdown(content != null ? content : "");
     }
 
-    // ------------------------------------------------------------------------
-    // 6) AGGREGATED INCOMPLETE TASKS (uses exclusion list)
-    // ------------------------------------------------------------------------
     public Map<String, List<Task>> fetchAggregatedIncompleteTasks(LocalDate startDate, LocalDate endDate) {
-        // 1) Read the local exclusion file. We only do this once here,
-        //    so if the file is large, you might want to cache it globally.
-        //    For simplicity, we'll read each time this method is called.
         Set<String> exclusionSet = loadExclusionSet("task_exclusion_list.md");
 
         List<Task> dailyTasks = new ArrayList<>();
@@ -140,11 +135,9 @@ public class DailyTaskService {
             // Daily tasks
             // ---------------------------
             List<Task> daily = fetchMarkdownLocalDate(current);
-            // filter incomplete
             daily = daily.stream()
                     .filter(task -> !task.isCompleted())
                     .collect(Collectors.toList());
-            // mark excluded if found in set
             markExcluded(daily, exclusionSet);
             dailyTasks.addAll(daily);
 
@@ -157,11 +150,9 @@ public class DailyTaskService {
 
             if (!fetchedWeeks.contains(weekKey)) {
                 List<Task> wTasks = fetchWeeklyMarkdown(current);
-                // only incomplete
                 wTasks = wTasks.stream()
                         .filter(task -> !task.isCompleted())
                         .collect(Collectors.toList());
-                // mark excluded
                 markExcluded(wTasks, exclusionSet);
 
                 weeklyTasks.addAll(wTasks);
@@ -174,11 +165,9 @@ public class DailyTaskService {
             String monthKey = current.format(DateTimeFormatter.ofPattern("yyyy-MM"));
             if (!fetchedMonths.contains(monthKey)) {
                 List<Task> mTasks = fetchMonthlyMarkdown(current);
-                // only incomplete
                 mTasks = mTasks.stream()
                         .filter(task -> !task.isCompleted())
                         .collect(Collectors.toList());
-                // mark excluded
                 markExcluded(mTasks, exclusionSet);
 
                 monthlyTasks.addAll(mTasks);
@@ -188,13 +177,66 @@ public class DailyTaskService {
             current = current.plusDays(1);
         }
 
-        // 2) Build result map
+        // ------------------------------------------------------------------------
+        // NEW: remove duplicates + sort by frequency for each list
+        // ------------------------------------------------------------------------
+        List<Task> finalDaily = removeDuplicatesAndSortByFrequency(dailyTasks);
+        List<Task> finalWeekly = removeDuplicatesAndSortByFrequency(weeklyTasks);
+        List<Task> finalMonthly = removeDuplicatesAndSortByFrequency(monthlyTasks);
+
+        // Build result map
         Map<String, List<Task>> result = new HashMap<>();
-        result.put("dailyTasks", dailyTasks);
-        result.put("weeklyTasks", weeklyTasks);
-        result.put("monthlyTasks", monthlyTasks);
+        result.put("dailyTasks", finalDaily);
+        result.put("weeklyTasks", finalWeekly);
+        result.put("monthlyTasks", finalMonthly);
 
         return result;
+    }
+
+    /**
+     * For a list of tasks (all incomplete):
+     *  1) group by description (case-sensitive or not; adjust if needed).
+     *  2) each group -> create a single Task that merges them
+     *  3) set task.frequency to the number of duplicates
+     *  4) sort descending by that frequency
+     */
+    private List<Task> removeDuplicatesAndSortByFrequency(List<Task> tasks) {
+        if (tasks.isEmpty()) {
+            return tasks;
+        }
+
+        // Group tasks by their (exact) description.
+        // If you want case-insensitive grouping, do .toLowerCase() on the key.
+        Map<String, List<Task>> grouped = tasks.stream()
+                .collect(Collectors.groupingBy(t -> t.getDescription().toLowerCase()));
+
+        // Build a single representative Task per group:
+        //  - pick the first one or create a new Task
+        //  - set frequency = size of that group
+        List<Task> deduplicated = new ArrayList<>();
+        for (Map.Entry<String, List<Task>> entry : grouped.entrySet()) {
+            String desc = entry.getKey();
+            List<Task> group = entry.getValue();
+
+            // For convenience, just pick the *first* Task as the "representative".
+            // Alternatively, you could create a fresh new Task object if you prefer.
+            Task rep = group.get(0);
+            rep.setFrequency(group.size());
+
+            // If there's any logic about excluded = true if *any* in the group was excluded,
+            // you could set that as well. Or if you prefer "excluded" only if *all* are excluded, etc.
+            // For now, let's say if *any* are excluded, we set excluded = true.
+            boolean anyExcluded = group.stream().anyMatch(Task::isExcluded);
+            rep.setExcluded(anyExcluded);
+
+            // Add that representative
+            deduplicated.add(rep);
+        }
+
+        // Finally, sort by frequency (descending).
+        deduplicated.sort((a, b) -> Integer.compare(b.getFrequency(), a.getFrequency()));
+
+        return deduplicated;
     }
 
     // ------------------------------------------------------------------------
@@ -302,5 +344,103 @@ public class DailyTaskService {
             this.originalLine = originalLine;
             this.desc = desc;
         }
+    }
+
+    /**
+     * Scheduled job that runs every day at 00:05 AM PST.
+     *  1) Check if today's daily .md file on GitHub exists.
+     *  2) If NOT, then create it with the top 2 tasks from incomplete daily,
+     *     then weekly, then monthly (by descending priority).
+     */
+    @Scheduled(cron = "0 5 0 * * ?", zone = "America/Los_Angeles")
+    public void autoCreateDailyTaskForToday() {
+        LocalDate today = LocalDate.now(); // or LocalDate.now(ZoneId.of("America/Los_Angeles"))
+
+        // 1) Check if today's daily file already exists
+        String yearMonthFolder = today.format(DateTimeFormatter.ofPattern("yyyy-MM"));
+        WeekFields customWeekFields = WeekFields.of(DayOfWeek.SUNDAY, 1);
+        int isoWeekNumber = today.get(customWeekFields.weekOfWeekBasedYear());
+        String weekFolder = String.format("W%02d", isoWeekNumber);
+        String dailyFileName = today.toString() + ".md";  // e.g. "2025-03-25.md"
+
+        // The path we expect on GitHub
+        String githubPath = String.format("%s/%s/%s", yearMonthFolder, weekFolder, dailyFileName);
+        String existingContent = gitHubService.getContentAPI(githubPath);
+
+        // if it is already there and not empty, do nothing
+        if (existingContent != null && !existingContent.isEmpty()) {
+            System.out.println("Daily .md file for " + today + " already exists on GitHub. Skipping creation.");
+            return;
+        }
+
+        // 2) If the file doesn't exist yet, we gather up to 2 top tasks from daily→weekly→monthly.
+        // Let's fetch incomplete tasks from the start of the year up to "today"
+        // (Adjust your logic: maybe you want to search the entire year or just a shorter window)
+        LocalDate startOfYear = LocalDate.of(today.getYear(), 1, 1);
+        Map<String, List<Task>> aggMap = fetchAggregatedIncompleteTasks(startOfYear, today);
+
+        List<Task> dailyList = aggMap.getOrDefault("dailyTasks", Collections.emptyList());
+        List<Task> weeklyList = aggMap.getOrDefault("weeklyTasks", Collections.emptyList());
+        List<Task> monthlyList = aggMap.getOrDefault("monthlyTasks", Collections.emptyList());
+
+        // We'll pick up to 2 tasks in order of priority:
+        List<Task> chosen = pickTopTwoFromThreeLists(dailyList, weeklyList, monthlyList);
+
+        // If no tasks found at all, you might choose to skip or create an empty file
+        if (chosen.isEmpty()) {
+            System.out.println("No incomplete tasks found to add. Creating an empty daily file anyway.");
+        }
+
+        // 3) Build the content for the new daily .md file
+        // Typically, each task is `- [ ] description`
+        StringBuilder sb = new StringBuilder();
+        for (Task t : chosen) {
+            sb.append("- [ ] ").append(t.getDescription()).append("\n");
+        }
+        String newFileContent = sb.toString();
+
+        // 4) Create or update the file in GitHub
+        // You might have a method in GitHubReadService or a separate GitHubWriteService
+        // that does something like: createOrUpdateFile(path, newContent, commitMessage).
+        gitHubService.createOrUpdateFile(
+                githubPath,
+                newFileContent,
+                "Auto-created daily task file at 00:05 PST"
+        );
+
+        System.out.println("Created daily .md file for " + today + " with " + chosen.size() + " tasks.");
+    }
+
+    /**
+     * Utility to pick up to 2 tasks from daily first, if not enough then from weekly,
+     * if still not enough, from monthly.
+     */
+    private List<Task> pickTopTwoFromThreeLists(List<Task> daily, List<Task> weekly, List<Task> monthly) {
+        List<Task> result = new ArrayList<>();
+
+        // daily is already sorted by frequency desc (from removeDuplicatesAndSortByFrequency)
+        // so just pick from the front
+        for (Task t : daily) {
+            if (result.size() >= 2) break;
+            result.add(t);
+        }
+
+        // if not enough, pick from weekly
+        if (result.size() < 2) {
+            for (Task t : weekly) {
+                if (result.size() >= 2) break;
+                result.add(t);
+            }
+        }
+
+        // if still not enough, pick from monthly
+        if (result.size() < 2) {
+            for (Task t : monthly) {
+                if (result.size() >= 2) break;
+                result.add(t);
+            }
+        }
+
+        return result;
     }
 }
