@@ -89,3 +89,5 @@ coverage/
 *~
 browser_cookies.txt
 screenshots
+
+task_exclusion_list.md

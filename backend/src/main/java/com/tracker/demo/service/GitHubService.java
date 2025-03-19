@@ -3,11 +3,11 @@ package com.tracker.demo.service;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
-import org.springframework.util.Base64Utils;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 
 import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -106,11 +106,13 @@ public class GitHubService {
 
         // 3) Prepare the JSON body for the PUT request
         // We must base64-encode the newContent
-        String base64Content = Base64Utils.encodeToString(newContent.getBytes(StandardCharsets.UTF_8));
+        String base64Encoded = Base64
+                .getEncoder()
+                .encodeToString("some text".getBytes(StandardCharsets.UTF_8));
 
         Map<String, Object> bodyMap = new HashMap<>();
         bodyMap.put("message", commitMessage);
-        bodyMap.put("content", base64Content);
+        bodyMap.put("content", base64Encoded);
         bodyMap.put("branch", branch);
         if (existingSha != null) {
             // If the file existed, we include the old sha
