@@ -1,0 +1,15 @@
+/* TaskColumns.css */
+.task-columns-container {
+  display: flex;
+  gap: 2rem; /* space between the two columns */
+  margin-bottom: 1rem;
+}
+
+.task-column {
+  flex: 1;            /* each column takes up half the container */
+  min-width: 200px;   /* ensures they don't shrink too small if screen is narrow */
+}
+
+.task-column h5 {
+  margin-top: 0;      /* optional: tighter headings */
+}

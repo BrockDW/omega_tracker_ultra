@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { apiGet } from "../util/apiClient";
+import { apiGet, apiPost } from "../util/apiClient"; // or wherever you keep them
+import "./../css/TaskColumns.css"
 
 const getDateRange = (option) => {
   const today = new Date();
@@ -29,7 +30,11 @@ const getDateRange = (option) => {
 };
 
 function IncompleteTasksPage() {
-  const [tasksMap, setTasksMap] = useState({ dailyTasks: [], weeklyTasks: [], monthlyTasks: [] });
+  const [tasksMap, setTasksMap] = useState({
+    dailyTasks: [],
+    weeklyTasks: [],
+    monthlyTasks: [],
+  });
   const [rangeOption, setRangeOption] = useState("this_week");
   const [loading, setLoading] = useState(false);
 
@@ -44,7 +49,7 @@ function IncompleteTasksPage() {
     try {
       const data = await apiGet(`/tasks/incomplete-aggregated?start=${start}&end=${end}`);
 
-      // Sort tasks alphabetically
+      // Sort tasks alphabetically by description
       const sortTasks = (tasks) => tasks.sort((a, b) => a.description.localeCompare(b.description));
 
       setTasksMap({
@@ -60,18 +65,101 @@ function IncompleteTasksPage() {
     }
   };
 
-  const renderTasks = (title, tasks) => (
-    tasks.length > 0 && (
+  /**
+   * Toggle a task's excluded status.
+   * 1) Locally flip its 'excluded' boolean so UI updates immediately
+   * 2) POST to /tasks/exclusion so the server updates task_exclusion_list.md
+   */
+  const handleToggleExclusion = async (taskGroup, clickedTask) => {
+    // 1) Make a clone of the entire tasksMap
+    const newTasksMap = structuredClone(tasksMap);
+
+    // 2) Find the matching task in newTasksMap[taskGroup]
+    //    e.g. by matching the description
+    const tasksArray = newTasksMap[taskGroup];
+    const foundIndex = tasksArray.findIndex(
+      (t) => t.description === clickedTask.description
+    );
+    if (foundIndex === -1) {
+      console.warn("Could not find matching task:", clickedTask.description);
+      return;
+    }
+
+    // Flip the excluded value
+    tasksArray[foundIndex].excluded = !tasksArray[foundIndex].excluded;
+
+    // 3) Update state so we immediately see the columns change
+    setTasksMap(newTasksMap);
+
+    try {
+      // 4) POST to the server to update the local exclusion file
+      await apiPost("/tasks/exclusion", {
+        description: clickedTask.description,
+        excluded: tasksArray[foundIndex].excluded,
+      });
+    } catch (error) {
+      console.error("Error updating exclusion:", error);
+
+      // Optional: revert the change if the request failed
+      tasksArray[foundIndex].excluded = !tasksArray[foundIndex].excluded;
+      setTasksMap(structuredClone(newTasksMap));
+    }
+  };
+
+
+  // Helper to display tasks in two columns: Not Excluded / Excluded
+  const renderTwoColumnTasks = (title, tasks, groupKey) => {
+    const notExcluded = tasks.filter((t) => !t.excluded);
+    const excluded = tasks.filter((t) => t.excluded);
+
+    if (tasks.length === 0) return null;
+
+    return (
       <div style={{ marginBottom: "1rem" }}>
         <h4>{title}</h4>
-        <ul>
-          {tasks.map((task, index) => (
-            <li key={index}>{task.description}</li>
-          ))}
-        </ul>
+
+        <div className="task-columns-container">
+          {/* Column 1: Not Excluded */}
+          <div className="task-column">
+            <h5>Not Excluded</h5>
+            <ul>
+              {notExcluded.map((task, idx) => (
+                <li key={`${groupKey}-notExcluded-${idx}`}>
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={task.excluded}
+                      onChange={() => handleToggleExclusion(groupKey, task)}
+                    />
+                    {task.description}
+                  </label>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Column 2: Excluded */}
+          <div className="task-column">
+            <h5>Excluded</h5>
+            <ul>
+              {excluded.map((task, idx) => (
+                <li key={`${groupKey}-excluded-${idx}`}>
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={task.excluded}
+                      onChange={() => handleToggleExclusion(groupKey, task)}
+                    />
+                    {task.description}
+                  </label>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
       </div>
-    )
-  );
+    );
+  };
 
   return (
     <div style={{ padding: "1rem" }}>
@@ -93,12 +181,15 @@ function IncompleteTasksPage() {
         <p>Loading incomplete tasks...</p>
       ) : (
         <>
-          {renderTasks("Daily Tasks", tasksMap.dailyTasks)}
-          {renderTasks("Weekly Tasks", tasksMap.weeklyTasks)}
-          {renderTasks("Monthly Tasks", tasksMap.monthlyTasks)}
-          {(tasksMap.dailyTasks.length === 0 && tasksMap.weeklyTasks.length === 0 && tasksMap.monthlyTasks.length === 0) && (
-            <p>No incomplete tasks for the selected period.</p>
-          )}
+          {renderTwoColumnTasks("Daily Tasks", tasksMap.dailyTasks, "dailyTasks")}
+          {renderTwoColumnTasks("Weekly Tasks", tasksMap.weeklyTasks, "weeklyTasks")}
+          {renderTwoColumnTasks("Monthly Tasks", tasksMap.monthlyTasks, "monthlyTasks")}
+
+          {tasksMap.dailyTasks.length === 0 &&
+            tasksMap.weeklyTasks.length === 0 &&
+            tasksMap.monthlyTasks.length === 0 && (
+              <p>No incomplete tasks for the selected period.</p>
+            )}
         </>
       )}
     </div>

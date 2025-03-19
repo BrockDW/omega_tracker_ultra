@@ -1,0 +1,31 @@
+- [ ] jfdklafjdskaljkflsda
+- [ ] 买Arduino和pressure sensor必备器具
+- [ ] 
+- [ ] 仅仅给手机开放pi service IP address
+- [ ] 优化android widget
+- [ ] 优化keybr数据获取逻辑
+- [ ] 优化图表逻辑
+- [ ] 修复load cell tracker
+- [ ] 更改Arduino code让load cell自适应
+- [ ] 清理房间
+- [ ] 清理房间po
+- [ ] 设置android wedge
+- [ ] 给android widget设置12点自动更新
+- [ ] 设置database 来记录打字练习
+- [ ] 设置message tracker
+- [ ] 设置Todo list garbage collection
+- [ ] 设置weight tracker
+- [ ] 设置刷题Tracker
+- [ ] 设置打字tracker
+- [ ] 设置早起tracker
+- [ ] 设置早起闹钟
+- [ ] 问Emma怎么把splitwise的payment去掉
+- [ ] 买文件夹
+- [ ] 了解tax 准备找Nidhi要w2 form和employee recommendation letter
+- [ ] 了解tax 准备找Nidhi要w2 form和employee recopmmendation letter
+- [ ] 仅仅给手机开放pi service IP address on hold
+- [ ] 优化 incomplete task page
+- [ ] 修复Android Widget
+- [ ] 修复task retriever
+- [ ] 修复小桌子，将其变为牌桌
+- [ ] 将少许endpoint expose到公共服务器

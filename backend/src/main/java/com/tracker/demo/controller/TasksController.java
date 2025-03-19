@@ -1,6 +1,7 @@
 package com.tracker.demo.controller;
 
 import com.tracker.demo.dto.DailyTaskProgressDto;
+import com.tracker.demo.dto.ExclusionRequest;
 import com.tracker.demo.dto.KeyBrPracticeResult;
 import com.tracker.demo.dto.Task;
 import com.tracker.demo.service.DailyTaskService;
@@ -8,6 +9,7 @@ import com.tracker.demo.service.KeybrScraperServiceV2;
 import com.tracker.demo.sql.entity.KeyBrPracticeRecord;
 import com.tracker.demo.sql.repository.KeyBrPracticeRecordRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
@@ -77,6 +79,7 @@ public class TasksController {
         return dailyTaskService.fetchMarkdownInRange(startDate, endDate);
     }
 
+    // Existing GET endpoint:
     @GetMapping("/incomplete-aggregated")
     public Map<String, List<Task>> getIncompleteAggregatedTasks(
             @RequestParam String start,
@@ -85,5 +88,12 @@ public class TasksController {
         LocalDate startDate = LocalDate.parse(start);
         LocalDate endDate = LocalDate.parse(end);
         return dailyTaskService.fetchAggregatedIncompleteTasks(startDate, endDate);
+    }
+
+    // NEW POST endpoint:
+    @PostMapping("/exclusion")
+    public ResponseEntity<Map<String, String>> setExclusion(@RequestBody ExclusionRequest request) {
+        dailyTaskService.setExclusion(request.getDescription(), request.isExcluded());
+        return ResponseEntity.ok(Map.of("status", "success"));
     }
 }
