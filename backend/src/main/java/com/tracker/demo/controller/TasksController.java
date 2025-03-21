@@ -96,4 +96,9 @@ public class TasksController {
         dailyTaskService.setExclusion(request.getDescription(), request.isExcluded());
         return ResponseEntity.ok(Map.of("status", "success"));
     }
+
+    @PostMapping("/test/create-next-day-task")
+    public void setExclusion() {
+        dailyTaskService.autoCreateDailyTaskForToday();
+    }
 }

@@ -354,9 +354,7 @@ public class DailyTaskService {
      */
     @Scheduled(cron = "0 5 0 * * ?", zone = "America/Los_Angeles")
     public void autoCreateDailyTaskForToday() {
-        LocalDate today = LocalDate.now(); // or LocalDate.now(ZoneId.of("America/Los_Angeles"))
-
-        // 1) Check if today's daily file already exists
+        LocalDate today = LocalDate.now();
         String yearMonthFolder = today.format(DateTimeFormatter.ofPattern("yyyy-MM"));
         WeekFields customWeekFields = WeekFields.of(DayOfWeek.SUNDAY, 1);
         int isoWeekNumber = today.get(customWeekFields.weekOfWeekBasedYear());
@@ -367,41 +365,49 @@ public class DailyTaskService {
         String githubPath = String.format("%s/%s/%s", yearMonthFolder, weekFolder, dailyFileName);
         String existingContent = gitHubService.getContentAPI(githubPath);
 
-        // if it is already there and not empty, do nothing
+        // If it's already there and not empty, do nothing
         if (existingContent != null && !existingContent.isEmpty()) {
             System.out.println("Daily .md file for " + today + " already exists on GitHub. Skipping creation.");
             return;
         }
 
-        // 2) If the file doesn't exist yet, we gather up to 2 top tasks from daily→weekly→monthly.
-        // Let's fetch incomplete tasks from the start of the year up to "today"
-        // (Adjust your logic: maybe you want to search the entire year or just a shorter window)
+        // If the file doesn't exist, gather incomplete tasks from daily→weekly→monthly
+        // for the date range you prefer (e.g. from start of year to "today").
         LocalDate startOfYear = LocalDate.of(today.getYear(), 1, 1);
         Map<String, List<Task>> aggMap = fetchAggregatedIncompleteTasks(startOfYear, today);
 
+        // 1) Retrieve the aggregated tasks
         List<Task> dailyList = aggMap.getOrDefault("dailyTasks", Collections.emptyList());
         List<Task> weeklyList = aggMap.getOrDefault("weeklyTasks", Collections.emptyList());
         List<Task> monthlyList = aggMap.getOrDefault("monthlyTasks", Collections.emptyList());
 
-        // We'll pick up to 2 tasks in order of priority:
+        // 2) **Exclude** any tasks that are in the exclusion list (already marked as excluded = true).
+        dailyList = dailyList.stream()
+                .filter(t -> !t.isExcluded())
+                .collect(Collectors.toList());
+        weeklyList = weeklyList.stream()
+                .filter(t -> !t.isExcluded())
+                .collect(Collectors.toList());
+        monthlyList = monthlyList.stream()
+                .filter(t -> !t.isExcluded())
+                .collect(Collectors.toList());
+
+        // 3) Pick up to 2 tasks in priority order
         List<Task> chosen = pickTopTwoFromThreeLists(dailyList, weeklyList, monthlyList);
 
-        // If no tasks found at all, you might choose to skip or create an empty file
+        // If none found, optionally create an empty daily file
         if (chosen.isEmpty()) {
-            System.out.println("No incomplete tasks found to add. Creating an empty daily file anyway.");
+            System.out.println("No incomplete, non-excluded tasks found. Creating an empty daily file anyway.");
         }
 
-        // 3) Build the content for the new daily .md file
-        // Typically, each task is `- [ ] description`
+        // 4) Build content for the new daily .md file
         StringBuilder sb = new StringBuilder();
         for (Task t : chosen) {
             sb.append("- [ ] ").append(t.getDescription()).append("\n");
         }
         String newFileContent = sb.toString();
 
-        // 4) Create or update the file in GitHub
-        // You might have a method in GitHubReadService or a separate GitHubWriteService
-        // that does something like: createOrUpdateFile(path, newContent, commitMessage).
+        // 5) Create or update the file in GitHub
         gitHubService.createOrUpdateFile(
                 githubPath,
                 newFileContent,
@@ -410,6 +416,7 @@ public class DailyTaskService {
 
         System.out.println("Created daily .md file for " + today + " with " + chosen.size() + " tasks.");
     }
+
 
     /**
      * Utility to pick up to 2 tasks from daily first, if not enough then from weekly,

@@ -108,7 +108,7 @@ public class GitHubService {
         // We must base64-encode the newContent
         String base64Encoded = Base64
                 .getEncoder()
-                .encodeToString("some text".getBytes(StandardCharsets.UTF_8));
+                .encodeToString(newContent.getBytes(StandardCharsets.UTF_8));
 
         Map<String, Object> bodyMap = new HashMap<>();
         bodyMap.put("message", commitMessage);
