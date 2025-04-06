@@ -205,37 +205,21 @@ public class DailyTaskService {
             return tasks;
         }
 
-        // Group tasks by their (exact) description.
-        // If you want case-insensitive grouping, do .toLowerCase() on the key.
         Map<String, List<Task>> grouped = tasks.stream()
+                // Exclude incomplete Auto Generated tasks
+                .filter(t -> !(t.getDescription().endsWith("[Auto Generated]") && !t.isCompleted()))
                 .collect(Collectors.groupingBy(t -> t.getDescription().toLowerCase()));
 
-        // Build a single representative Task per group:
-        //  - pick the first one or create a new Task
-        //  - set frequency = size of that group
         List<Task> deduplicated = new ArrayList<>();
         for (Map.Entry<String, List<Task>> entry : grouped.entrySet()) {
-            String desc = entry.getKey();
-            List<Task> group = entry.getValue();
-
-            // For convenience, just pick the *first* Task as the "representative".
-            // Alternatively, you could create a fresh new Task object if you prefer.
-            Task rep = group.get(0);
-            rep.setFrequency(group.size());
-
-            // If there's any logic about excluded = true if *any* in the group was excluded,
-            // you could set that as well. Or if you prefer "excluded" only if *all* are excluded, etc.
-            // For now, let's say if *any* are excluded, we set excluded = true.
-            boolean anyExcluded = group.stream().anyMatch(Task::isExcluded);
+            Task rep = entry.getValue().get(0);
+            rep.setFrequency(entry.getValue().size());
+            boolean anyExcluded = entry.getValue().stream().anyMatch(Task::isExcluded);
             rep.setExcluded(anyExcluded);
-
-            // Add that representative
             deduplicated.add(rep);
         }
 
-        // Finally, sort by frequency (descending).
         deduplicated.sort((a, b) -> Integer.compare(b.getFrequency(), a.getFrequency()));
-
         return deduplicated;
     }
 
@@ -355,66 +339,74 @@ public class DailyTaskService {
     @Scheduled(cron = "0 5 0 * * ?", zone = "America/Los_Angeles")
     public void autoCreateDailyTaskForToday() {
         LocalDate today = LocalDate.now();
-        String yearMonthFolder = today.format(DateTimeFormatter.ofPattern("yyyy-MM"));
+        LocalDate yesterday = today.minusDays(1);
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM");
         WeekFields customWeekFields = WeekFields.of(DayOfWeek.SUNDAY, 1);
-        int isoWeekNumber = today.get(customWeekFields.weekOfWeekBasedYear());
-        String weekFolder = String.format("W%02d", isoWeekNumber);
-        String dailyFileName = today.toString() + ".md";  // e.g. "2025-03-25.md"
 
-        // The path we expect on GitHub
-        String githubPath = String.format("%s/%s/%s", yearMonthFolder, weekFolder, dailyFileName);
-        String existingContent = gitHubService.getContentAPI(githubPath);
+        // ----- First: Check yesterday's markdown file for completed auto-generated tasks -----
+        String yesterdayYearMonth = yesterday.format(formatter);
+        int yesterdayIsoWeek = yesterday.get(customWeekFields.weekOfWeekBasedYear());
+        String yesterdayWeekFolder = String.format("W%02d", yesterdayIsoWeek);
+        String yesterdayFileName = yesterday.toString() + ".md";
+        String yesterdayPath = String.format("%s/%s/%s", yesterdayYearMonth, yesterdayWeekFolder, yesterdayFileName);
+        String yesterdayContent = gitHubService.getContentAPI(yesterdayPath);
 
-        // If it's already there and not empty, do nothing
+        if (yesterdayContent != null && !yesterdayContent.isEmpty()) {
+            List<Task> yesterdayTasks = parseMarkdown(yesterdayContent);
+            yesterdayTasks.stream()
+                    .filter(t -> t.getDescription().endsWith("[Auto Generated]") && t.isCompleted())
+                    .forEach(t -> {
+                        String desc = t.getDescription().replace("[Auto Generated]", "").trim();
+                        setExclusion(desc, true);
+                    });
+        }
+
+        // ----- Second: Check today's file existence -----
+        String todayYearMonth = today.format(formatter);
+        int todayIsoWeek = today.get(customWeekFields.weekOfWeekBasedYear());
+        String todayWeekFolder = String.format("W%02d", todayIsoWeek);
+        String todayFileName = today.toString() + ".md";
+        String todayPath = String.format("%s/%s/%s", todayYearMonth, todayWeekFolder, todayFileName);
+        String existingContent = gitHubService.getContentAPI(todayPath);
+
         if (existingContent != null && !existingContent.isEmpty()) {
-            System.out.println("Daily .md file for " + today + " already exists on GitHub. Skipping creation.");
+            System.out.println("Today's markdown file already exists. Skipping creation.");
             return;
         }
 
-        // If the file doesn't exist, gather incomplete tasks from daily→weekly→monthly
-        // for the date range you prefer (e.g. from start of year to "today").
+        // ----- Third: Gather incomplete tasks excluding Auto Generated incomplete tasks -----
         LocalDate startOfYear = LocalDate.of(today.getYear(), 1, 1);
-        Map<String, List<Task>> aggMap = fetchAggregatedIncompleteTasks(startOfYear, today);
+        Map<String, List<Task>> aggMap = fetchAggregatedIncompleteTasks(startOfYear, today.minusDays(1));
 
-        // 1) Retrieve the aggregated tasks
-        List<Task> dailyList = aggMap.getOrDefault("dailyTasks", Collections.emptyList());
-        List<Task> weeklyList = aggMap.getOrDefault("weeklyTasks", Collections.emptyList());
-        List<Task> monthlyList = aggMap.getOrDefault("monthlyTasks", Collections.emptyList());
+        List<Task> dailyList = aggMap.getOrDefault("dailyTasks", Collections.emptyList())
+                .stream().filter(t -> !t.isExcluded()).collect(Collectors.toList());
 
-        // 2) **Exclude** any tasks that are in the exclusion list (already marked as excluded = true).
-        dailyList = dailyList.stream()
-                .filter(t -> !t.isExcluded())
-                .collect(Collectors.toList());
-        weeklyList = weeklyList.stream()
-                .filter(t -> !t.isExcluded())
-                .collect(Collectors.toList());
-        monthlyList = monthlyList.stream()
-                .filter(t -> !t.isExcluded())
-                .collect(Collectors.toList());
+        List<Task> weeklyList = aggMap.getOrDefault("weeklyTasks", Collections.emptyList())
+                .stream().filter(t -> !t.isExcluded()).collect(Collectors.toList());
 
-        // 3) Pick up to 2 tasks in priority order
-        List<Task> chosen = pickTopTwoFromThreeLists(dailyList, weeklyList, monthlyList);
+        List<Task> monthlyList = aggMap.getOrDefault("monthlyTasks", Collections.emptyList())
+                .stream().filter(t -> !t.isExcluded()).collect(Collectors.toList());
 
-        // If none found, optionally create an empty daily file
-        if (chosen.isEmpty()) {
-            System.out.println("No incomplete, non-excluded tasks found. Creating an empty daily file anyway.");
-        }
+        // ----- Pick only 1 task -----
+        Optional<Task> chosenTask = pickOneFromThreeLists(dailyList, weeklyList, monthlyList);
 
-        // 4) Build content for the new daily .md file
         StringBuilder sb = new StringBuilder();
-        for (Task t : chosen) {
-            sb.append("- [ ] ").append(t.getDescription()).append("\n");
+        if (chosenTask.isPresent()) {
+            Task t = chosenTask.get();
+            sb.append("- [ ] ").append(t.getDescription()).append(" [Auto Generated]").append("\n");
+        } else {
+            System.out.println("No suitable task found; creating empty markdown file.");
         }
+
         String newFileContent = sb.toString();
 
-        // 5) Create or update the file in GitHub
         gitHubService.createOrUpdateFile(
-                githubPath,
+                todayPath,
                 newFileContent,
                 "Auto-created daily task file at 00:05 PST"
         );
 
-        System.out.println("Created daily .md file for " + today + " with " + chosen.size() + " tasks.");
+        System.out.println("Created daily markdown file for " + today);
     }
 
 
@@ -449,5 +441,12 @@ public class DailyTaskService {
         }
 
         return result;
+    }
+
+    private Optional<Task> pickOneFromThreeLists(List<Task> daily, List<Task> weekly, List<Task> monthly) {
+        if (!daily.isEmpty()) return Optional.of(daily.get(0));
+        if (!weekly.isEmpty()) return Optional.of(weekly.get(0));
+        if (!monthly.isEmpty()) return Optional.of(monthly.get(0));
+        return Optional.empty();
     }
 }
